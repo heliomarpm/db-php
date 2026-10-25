@@ -3,7 +3,7 @@
   <img src="./logo.png" alt="DbPHP" width="228" />
 
   <a href="https://navto.me/heliomarpm" target="_blank"><img src="https://navto.me/assets/navigatetome-brand.png" width="32"/></a>
-  ![CI Status](https://github.com/heliomarpm/db-php/actions/workflows/ci.yml/badge.svg?branch=main)
+  [![CI Status](https://github.com/heliomarpm/db-php/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/heliomarpm/db-php/actions)
   [![CodeFactor][url-codefactor-badge]][url-codefactor]
   [![Packagist Version][url-packagist-badge]][url-packagist]
   [![Packagist Downloads][url-packagist-downloads-badge]][url-packagist]
@@ -19,74 +19,305 @@
 </div>
 </div>
 
-**DbPHP** é uma biblioteca leve, de alta performance e sem dependências externas para conexão e manipulação de banco de dados (PDO e MySQLi) em PHP.
+**DbPHP** é uma biblioteca leve, moderna e de alta performance para conexão e manipulação de bancos de dados relacionais em PHP 8.2+.
 
-Inspirada no padrão ergonômico de drivers do OpenCart, porém totalmente modernizada para **PHP 8.2+**, com tipagem estrita, DTOs imutáveis, prepared statements seguros e telemetria nativa de execução.
+Oferece suporte unificado a **PDO** e **MySQLi**, prepared statements com parâmetros nomeados (`:param`) e posicionais (`?`), telemetria nativa de execução, transações atômicas seguras e integração fluida com coleções em memória via [linq-php](https://github.com/heliomarpm/linq-php).
 
-> [Demo interativo](https://db-php.vercel.app/)
+> 🚀 **[Experimente o Laboratório Interativo Online](https://db-php.vercel.app/)**  
+> Teste cenários reais de consultas, telemetria, transações e SQL livre direto no navegador!
 
-## Requisitos
+---
+
+## ⚡ Destaques
+
+- **Zero Dependências**: Construído exclusivamente sobre os módulos nativos do PHP (`ext-pdo` e `ext-mysqli`).
+- **Parâmetros Nomeados Universais**: Use `:param` tanto com PDO quanto com MySQLi (tradução transparente).
+- **Telemetria Integrada**: Obtenha o tempo exato de execução da query (`$result->elapsedTime`) e contagem (`$result->count`) sem overhead.
+- **DTO Imutável `QueryResult`**: Métodos ergonômicos como `$result->column('nome')`, `$result->row`, `$result->rows` e `firstOrDefault()`.
+- **Transações Atômicas**: Gerenciamento de bloco `DB::transaction()` com auto-commit e auto-rollback.
+- **Ponte com LinqPHP**: Encadeie pipelines de transformação em memória chamando `->linq()` a partir do resultado da query.
+
+---
+
+## 📦 Requisitos
+
 - PHP 8.2 ou superior
 - Extensões `pdo` (com drivers como `pdo_mysql`, `pdo_sqlite`) e/ou `mysqli`
 
-## Instalação
+## 📥 Instalação
+
 ```bash
 composer require heliomarpm/db-php
 ```
 
-## Como Usar
+---
 
-### 1. Inicialização e Conexão Rápida
+## 🚀 Guia Prático de Uso
+
+### 1. Inicialização e Conexão
+
 ```php
 use HeliomarPM\DbPHP\DB;
 
-// SQLite em memória ou arquivo:
+// SQLite em memória (ideal para testes, microserviços e serverless):
 $db = DB::sqlite();
 
-// MySQL via PDO:
-$db = DB::mysql(database: "minha_base", username: "root", password: "secret_password");
+// SQLite em arquivo persistente:
+$db = DB::sqlite("/caminho/para/database.sqlite");
+
+// MySQL via Driver PDO:
+$db = DB::mysql(
+    database: "minha_base",
+    username: "usuario",
+    password: "senha_segura",
+    hostname: "127.0.0.1",
+    port: 3306
+);
 
 // MySQL nativo via Driver MySQLi:
 $db = DB::connect([
     "driver"   => "mysqli",
     "hostname" => "127.0.0.1",
     "database" => "minha_base",
-    "username" => "root",
-    "password" => "secret_password",
+    "username" => "usuario",
+    "password" => "senha_segura",
+    "charset"  => "utf8mb4"
 ]);
 ```
 
-### 2. Consultas com Telemetria Embutida (`QueryResult`)
+---
+
+### 2. Consultas (`SELECT`) e Parâmetros Seguros
+
+#### 2.1 Parâmetros Nomeados (`:param`) — Recomendado para legibilidade
+Você pode usar parâmetros nomeados passando um array associativo com ou sem o prefixo `:`:
+
 ```php
-$result = DB::query("SELECT * FROM produtos WHERE preco > ?", [100.0]);
+// Busca produtos com preço e estoque mínimos definidos por chave nomeada:
+$result = DB::query("
+    SELECT id_produto, nome_produto, preco, estoque
+    FROM produtos
+    WHERE preco >= :min_preco AND estoque >= :min_estoque
+    ORDER BY preco DESC
+", [
+    "min_preco"   => 89.90,
+    "min_estoque" => 10,
+]);
 
-echo $result->count;       // Quantidade de linhas afetadas/retornadas
-echo $result->elapsedTime; // Tempo de execução em segundos com precisão (ex: 0.0012s)
-print_r($result->row);     // Primeira linha como array associativo
-print_r($result->rows);    // Todas as linhas
-
-// Obter uma única coluna como lista simples:
-$nomes = $result->column("nome");
+// O DbPHP aceita tanto ['min_preco' => 89.90] quanto [':min_preco' => 89.90]
 ```
 
-### 3. Integração Fluida com `heliomarpm/linq-php`
-Se você possui a biblioteca parceira [`heliomarpm/linq-php`](https://github.com/heliomarpm/linq-php) instalada, você pode encadear operações LINQ diretamente do resultado da query:
+#### 2.2 Parâmetros Posicionais (`?`)
+Também é possível usar placeholders posicionais com array indexado:
+
 ```php
-$destaques = DB::query("SELECT * FROM produtos")
-    ->linq()
-    ->where(fn($p) => $p["em_estoque"] > 0)
-    ->orderByKey("preco", descending: true)
-    ->take(5)
-    ->toArray();
+$result = DB::query("
+    SELECT * FROM clientes
+    WHERE uf = ? AND vip = ?
+", ["SP", 1]);
 ```
 
-### 4. Transações Atômicas Seguras
+---
+
+### 3. Trabalhando com os Resultados (`QueryResult`)
+
+O objeto retornado por `DB::query()` disponibiliza propriedades e métodos ergonômicos:
+
 ```php
-DB::transaction(function ($db) {
-    $db->execute("UPDATE contas SET saldo = saldo - 50 WHERE id = 1");
-    $db->execute("UPDATE contas SET saldo = saldo + 50 WHERE id = 2");
-}); // Auto-commit se concluído com sucesso, auto-rollback se qualquer exceção for lançada.
+$result = DB::query("SELECT id_produto, nome_produto, preco FROM produtos");
+
+// 📊 Métricas de Telemetria:
+echo $result->count;       // Quantidade de registros retornados (int)
+echo $result->elapsedTime; // Tempo de execução em segundos (ex: 0.000185s)
+
+// 📋 Leitura dos Registros:
+print_r($result->row);     // Primeira linha como array associativo (ou [] se vazio)
+print_r($result->rows);    // Todas as linhas (array de arrays)
+
+// 🎯 Extração Direta de Coluna (elimina array_column):
+$nomes = $result->column("nome_produto");
+// Retorna: ["PLA Preto", "PETG Branco", "Bico Extrusor", ...]
+
+// 🔍 Localização com Condição (Early-Exit):
+$produtoBarato = $result->firstOrDefault(fn($p) => (float)$p["preco"] < 50.00);
+
+// 🔁 Iteração Direta (QueryResult implementa IteratorAggregate):
+foreach ($result as $linha) {
+    echo "{$linha['nome_produto']} - R$ {$linha['preco']}\n";
+}
 ```
+
+---
+
+### 4. Operações de Escrita (`INSERT`, `UPDATE`, `DELETE`)
+
+Utilize `DB::execute()` para operações que modificam dados. Ele retorna o **número de linhas afetadas**:
+
+#### 4.1 Inserção e Obtenção do ID Gerado
+```php
+$afetados = DB::execute("
+    INSERT INTO clientes (nome_cliente, uf, cidade, vip, saldo_credito)
+    VALUES (:nome, :uf, :cidade, :vip, :saldo)
+", [
+    "nome"   => "Mariana Silva",
+    "uf"     => "MG",
+    "cidade" => "Belo Horizonte",
+    "vip"    => 1,
+    "saldo"  => 250.00
+]);
+
+$novoId = DB::lastInsertId(); // ID autonumérico inserido (ex: 9)
+```
+
+#### 4.2 Atualização com Parâmetros Nomeados
+```php
+$reajustados = DB::execute("
+    UPDATE produtos
+    SET preco = preco * :fator
+    WHERE id_categoria = :categoria AND estoque > :min_estoque
+", [
+    "fator"       => 1.10, // Reajuste de 10%
+    "categoria"   => 1,
+    "min_estoque" => 0,
+]);
+
+echo "Total de produtos atualizados: {$reajustados}";
+```
+
+#### 4.3 Exclusão Controlada
+```php
+$removidos = DB::execute("
+    DELETE FROM pedidos
+    WHERE status = :status AND data_pedido < :limite
+", [
+    "status" => "cancelado",
+    "limite" => "2026-01-01 00:00:00",
+]);
+```
+
+---
+
+### 5. Transações Atômicas Seguras (`DB::transaction`)
+
+O método `DB::transaction()` encapsula a execução em um bloco com auto-commit e auto-rollback. Se qualquer exceção for lançada dentro da closure, a transação é revertida imediatamente:
+
+```php
+// Exemplo: Transferência bancária atômica que retorna o protocolo da operação
+$protocolo = DB::transaction(function ($driver) {
+    // 1. Debita da conta de origem:
+    $driver->execute("
+        UPDATE contas
+        SET saldo = saldo - :valor
+        WHERE id_conta = :origem AND saldo >= :valor
+    ", [
+        "valor"  => 500.00,
+        "origem" => 1,
+    ]);
+
+    // 2. Credita na conta de destino:
+    $driver->execute("
+        UPDATE contas
+        SET saldo = saldo + :valor
+        WHERE id_conta = :destino
+    ", [
+        "valor"   => 500.00,
+        "destino" => 2,
+    ]);
+
+    // 3. Registra comprovante:
+    $driver->execute("
+        INSERT INTO transferencias (conta_origem, conta_destino, valor, data_hora)
+        VALUES (:origem, :destino, :valor, datetime('now'))
+    ", [
+        "origem"  => 1,
+        "destino" => 2,
+        "valor"   => 500.00,
+    ]);
+
+    return $driver->lastInsertId();
+});
+
+echo "Transferência confirmada com ID: {$protocolo}";
+```
+
+---
+
+### 6. Poder Combinado: `DbPHP` + `LinqPHP`
+
+Se você tiver a biblioteca parceira [`heliomarpm/linq-php`](https://github.com/heliomarpm/linq-php) instalada, você pode encadear métodos LINQ diretamente do resultado da consulta SQL:
+
+```php
+$destaques = DB::query("
+    SELECT p.id_produto, p.nome_produto, c.nome_categoria, p.preco, p.estoque
+    FROM produtos p
+    INNER JOIN categorias c ON c.id_categoria = p.id_categoria
+")
+->linq()
+->where(fn($p) => (float)$p["preco"] > 50.00)
+->orderByKey("preco", descending: true)
+->select([
+    "id_produto"     => "Código",
+    "nome_produto"   => "Produto",
+    "nome_categoria" => "Categoria",
+    "preco"          => "Preço",
+])
+->take(5)
+->toArray();
+```
+
+---
+
+### 7. Consultas com Paginação (LIMIT e OFFSET)
+
+```php
+$pagina = 2;
+$porPagina = 10;
+$offset = ($pagina - 1) * $porPagina;
+
+$produtosPaginados = DB::query("
+    SELECT * FROM produtos
+    ORDER BY id_produto ASC
+    LIMIT :limit OFFSET :offset
+", [
+    "limit"  => $porPagina,
+    "offset" => $offset,
+]);
+```
+
+---
+
+## 🖥️ Laboratório Interativo Local
+
+Você pode iniciar o servidor de demonstração interativo com todas as tabelas e cenários pré-configurados com um único comando:
+
+```bash
+composer start
+```
+
+Em seguida, abra **[http://localhost:8000](http://localhost:8000)** no navegador para explorar as métricas de telemetria, testar transações e rodar consultas SQL em tempo real.
+
+---
+
+## 🧪 Qualidade de Código e Testes
+
+O projeto segue rigorosos padrões de tipagem estrita e cobertura de testes:
+
+```bash
+# Rodar todos os testes unitários (PHPUnit 100% verde)
+composer test
+
+# Análise estática de tipos (PHPStan no Nível 8 mais rigoroso)
+composer lint
+
+# Validação e formatação de código (PSR-12 com Laravel Pint)
+composer format:test
+composer format:fix
+
+# Verificação completa da suíte
+composer check
+```
+
+---
 
 ## 🤝 Contribuições e suporte
 
@@ -119,7 +350,7 @@ Se você gosta do projeto, considere fazer uma doação ao desenvolvedor via Git
 ## 📝 Licença
 
 Distribuído sob a licença [MIT](https://github.com/heliomarpm/db-php/blob/main/LICENSE) © [Heliomar P. Marques](https://github.com/heliomarpm).\
-Sinta-se livre para utilizar, customizar e estender estas habilidades nos seus ambientes de desenvolvimento. [🔝](#top)
+Sinta-se livre para utilizar, customizar e estender estas bibliotecas nos seus ambientes de desenvolvimento. [🔝](#top)
 
 ---
 <!-- Sponsor badges -->

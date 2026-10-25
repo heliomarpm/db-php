@@ -217,7 +217,7 @@ final class PdoDriver implements DriverInterface
                 default => PDO::PARAM_STR,
             };
 
-            $paramName = is_int($key) ? $key + 1 : $key;
+            $paramName = is_int($key) ? $key + 1 : (str_starts_with((string)$key, ":") ? (string)$key : ":{$key}");
             $stmt->bindValue($paramName, $value, $paramType);
         }
 

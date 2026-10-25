@@ -63,9 +63,11 @@ final class MysqliDriver implements DriverInterface
         $this->assertConnected();
         $startTime = microtime(true);
 
+        [$resolvedSql, $resolvedParams] = $this->resolveNamedParameters($sql, $params);
+
         try {
-            if (!empty($params)) {
-                $stmt = $this->prepareStatement($sql, array_values($params));
+            if (!empty($resolvedParams)) {
+                $stmt = $this->prepareStatement($resolvedSql, $resolvedParams);
                 $stmt->execute();
                 $res = $stmt->get_result();
                 /** @var array<int, array<string, mixed>> $rows */
@@ -99,9 +101,11 @@ final class MysqliDriver implements DriverInterface
     {
         $this->assertConnected();
 
+        [$resolvedSql, $resolvedParams] = $this->resolveNamedParameters($sql, $params);
+
         try {
-            if (!empty($params)) {
-                $stmt = $this->prepareStatement($sql, array_values($params));
+            if (!empty($resolvedParams)) {
+                $stmt = $this->prepareStatement($resolvedSql, $resolvedParams);
                 $stmt->execute();
                 $this->affectedRows = (int)$stmt->affected_rows;
                 $stmt->close();
@@ -231,6 +235,38 @@ final class MysqliDriver implements DriverInterface
         $stmt->bind_param($types, ...$params);
 
         return $stmt;
+    }
+
+    /**
+     * @param array<int|string, mixed> $params
+     * @return array{0: string, 1: list<mixed>}
+     */
+    private function resolveNamedParameters(string $sql, array $params): array
+    {
+        if (empty($params) || array_is_list($params)) {
+            return [$sql, $params];
+        }
+
+        $orderedParams = [];
+        $translatedSql = (string) preg_replace_callback(
+            '/:([a-zA-Z0-9_]+)/',
+            function (array $matches) use ($params, &$orderedParams): string {
+                $key = $matches[1];
+                if (array_key_exists($key, $params)) {
+                    $orderedParams[] = $params[$key];
+                    return "?";
+                }
+                if (array_key_exists(":" . $key, $params)) {
+                    $orderedParams[] = $params[":" . $key];
+                    return "?";
+                }
+                return $matches[0];
+            },
+            $sql
+        );
+
+        /** @var list<mixed> $orderedParams */
+        return [$translatedSql, $orderedParams];
     }
 
     /**

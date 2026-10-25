@@ -43,6 +43,42 @@ CODE,
         }
     ],
 
+    'parametros_nomeados' => [
+        'titulo' => 'Parâmetros Nomeados (:param)',
+        'tag'    => 'NAMED PARAMS',
+        'badge'  => 'bg-info',
+        'desc'   => 'Demonstra prepared statements com múltiplos parâmetros nomeados em array associativo (:min_preco, :min_estoque).',
+        'codigo' => <<<'CODE'
+// Consulta usando parâmetros nomeados em array associativo:
+$result = DB::query("
+    SELECT p.id_produto, p.nome_produto, c.nome_categoria, p.preco, p.estoque
+    FROM produtos p
+    INNER JOIN categorias c ON c.id_categoria = p.id_categoria
+    WHERE p.preco >= :min_preco AND p.estoque >= :min_estoque
+    ORDER BY p.preco DESC
+", [
+    "min_preco"   => 100.00,
+    "min_estoque" => 10,
+]);
+
+// O DbPHP aceita tanto ['min_preco' => 100.0] quanto [':min_preco' => 100.0]
+$tempo = $result->elapsedTime;
+$total = $result->count;
+$linhas = $result->rows;
+CODE,
+        'run' => function (\HeliomarPM\DbPHP\Contracts\DriverInterface $db) {
+            return $db->query("
+                SELECT p.id_produto, p.nome_produto, c.nome_categoria, p.preco, p.estoque
+                FROM produtos p
+                INNER JOIN categorias c ON c.id_categoria = p.id_categoria
+                WHERE p.preco >= :min_preco AND p.estoque >= :min_estoque
+                ORDER BY p.preco DESC
+            ", [
+                "min_preco"   => 100.00,
+                "min_estoque" => 10,
+            ]);
+        }
+    ],
     'extracao_coluna' => [
         'titulo' => 'Extração de Coluna Direta ($result->column)',
         'tag'    => 'ERGONOMIA',

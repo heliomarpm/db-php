@@ -69,4 +69,24 @@ final class PdoDriverTest extends TestCase
         $resAposRollback = $this->driver->query("SELECT COUNT(*) AS total FROM users");
         $this->assertEquals(1, $resAposRollback->row["total"]);
     }
+    public function testNamedParametersWithAndWithoutColon(): void
+    {
+        $this->driver->execute(
+            "INSERT INTO users (name, email, active) VALUES (:name, :email, :active)",
+            ["name" => "Danilo", "email" => "danilo@example.com", "active" => 1]
+        );
+
+        $result1 = $this->driver->query(
+            "SELECT * FROM users WHERE email = :email",
+            ["email" => "danilo@example.com"]
+        );
+        $this->assertSame(1, $result1->count);
+        $this->assertSame("Danilo", $result1->row["name"]);
+
+        $result2 = $this->driver->query(
+            "SELECT * FROM users WHERE active = :active AND name = :name",
+            [":active" => 1, ":name" => "Danilo"]
+        );
+        $this->assertSame(1, $result2->count);
+    }
 }
