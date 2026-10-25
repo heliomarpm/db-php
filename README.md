@@ -23,6 +23,8 @@
 
 Inspirada no padrão ergonômico de drivers do OpenCart, porém totalmente modernizada para **PHP 8.2+**, com tipagem estrita, DTOs imutáveis, prepared statements seguros e telemetria nativa de execução.
 
+> [Demo interativo](https://db-php.vercel.app/)
+
 ## Requisitos
 - PHP 8.2 ou superior
 - Extensões `pdo` (com drivers como `pdo_mysql`, `pdo_sqlite`) e/ou `mysqli`

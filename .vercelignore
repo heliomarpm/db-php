@@ -1,0 +1,7 @@
+.git
+.github
+.agents
+tests
+phpunit.xml
+phpstan.neon
+pint.json
