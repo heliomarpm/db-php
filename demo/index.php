@@ -703,9 +703,9 @@ if (!function_exists('renderGridTable')) {
                 <p class="text-secondary small mb-0"><?= $dadosCenario['desc'] ?></p>
             </div>
             <?php if ($cenarioAtual === 'playground'): ?>
-                <button type="submit" form="sqlPlaygroundForm" class="btn btn-brand-gradient btn-sm px-4">
+                <!-- <button type="submit" form="sqlPlaygroundForm" class="btn btn-brand-gradient btn-sm px-4">
                     <i class="bi bi-play-fill me-1"></i> Executar SQL
-                </button>
+                </button> -->
             <?php endif; ?>
         </div>
 
