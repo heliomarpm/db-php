@@ -1,0 +1,60 @@
+{
+  "name": "heliomarpm/db-php",
+  "description": "Uma biblioteca leve, de alta performance e sem dependências externas para conexão e manipulação de banco de dados (PDO e MySQLi) em PHP",
+  "type": "library",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Heliomar P. Marques",
+      "email": "heliomarpm@gmail.com"
+    }
+  ],
+  "support": {
+    "issues": "https://github.com/heliomarpm/db-php/issues",
+    "source": "https://github.com/heliomarpm/db-php"
+  },
+  "keywords": [
+    "database",
+    "pdo",
+    "mysqli",
+    "db",
+    "sql",
+    "query",
+    "lightweight",
+    "php-library"
+  ],
+  "autoload": {
+    "psr-4": {
+      "HeliomarPM\\DbPHP\\": "src/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "HeliomarPM\\DbPHP\\Tests\\": "tests/"
+    }
+  },
+  "scripts": {
+    "format:test": "pint --test",
+    "format:fix": "pint",
+    "lint": "phpstan analyse",
+    "test": "phpunit --configuration phpunit.xml --colors=always",
+    "check": [
+      "@format:test",
+      "@lint",
+      "@test"
+    ]
+  },
+  "suggest": {
+    "heliomarpm/linq-php": "Permite encadear operações LINQ em memória a partir dos resultados de queries via ->linq()"
+  },
+  "minimum-stability": "stable",
+  "require": {
+    "php": ">=8.2"
+  },
+  "require-dev": {
+    "phpunit/phpunit": "^11.0 || ^12.0 || ^13.0",
+    "phpstan/phpstan": "*",
+    "laravel/pint": "^1.32",
+    "heliomarpm/linq-php": "^2.0"
+  }
+}
