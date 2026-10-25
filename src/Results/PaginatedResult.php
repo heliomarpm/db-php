@@ -42,7 +42,7 @@ final readonly class PaginatedResult implements Countable, IteratorAggregate, Js
         $validPerPage = max(1, $this->perPage);
         $validPage = max(1, $this->currentPage);
 
-        $this->lastPage = max(1, (int) ceil($validTotal / $validPerPage));
+        $this->lastPage = max(1, (int)ceil($validTotal / $validPerPage));
 
         $count = count($this->items);
         if ($count > 0 && $validPage <= $this->lastPage) {

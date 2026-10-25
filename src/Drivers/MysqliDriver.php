@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace HeliomarPM\DbPHP\Drivers;
 
-use HeliomarPM\DbPHP\Concerns\PaginatesQueries;
 use Exception;
+use HeliomarPM\DbPHP\Concerns\PaginatesQueries;
 use HeliomarPM\DbPHP\Config;
 use HeliomarPM\DbPHP\Contracts\DriverInterface;
 use HeliomarPM\DbPHP\Exceptions\ConnectionException;
@@ -39,26 +39,6 @@ final class MysqliDriver implements DriverInterface
     public function __destruct()
     {
         $this->close();
-    }
-
-    private function connect(): void
-    {
-        try {
-            mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
-
-            $this->conn = new mysqli(
-                $this->config->host,
-                (string)$this->config->username,
-                (string)$this->config->password,
-                $this->config->database,
-                $this->config->port
-            );
-
-            $this->conn->set_charset($this->config->charset);
-        } catch (Exception $e) {
-            $code = is_numeric($e->getCode()) ? (int)$e->getCode() : 0;
-            throw new ConnectionException("Falha ao conectar via MySQLi: " . $e->getMessage(), $code, $e);
-        }
     }
 
     public function query(string $sql, array $params = []): QueryResult
@@ -215,6 +195,26 @@ final class MysqliDriver implements DriverInterface
         return $this->conn;
     }
 
+    private function connect(): void
+    {
+        try {
+            mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
+
+            $this->conn = new mysqli(
+                $this->config->host,
+                (string)$this->config->username,
+                (string)$this->config->password,
+                $this->config->database,
+                $this->config->port
+            );
+
+            $this->conn->set_charset($this->config->charset);
+        } catch (Exception $e) {
+            $code = is_numeric($e->getCode()) ? (int)$e->getCode() : 0;
+            throw new ConnectionException("Falha ao conectar via MySQLi: " . $e->getMessage(), $code, $e);
+        }
+    }
+
     /**
      * @param array<int, mixed> $params
      */
@@ -251,7 +251,7 @@ final class MysqliDriver implements DriverInterface
         }
 
         $orderedParams = [];
-        $translatedSql = (string) preg_replace_callback(
+        $translatedSql = (string)preg_replace_callback(
             '/:([a-zA-Z0-9_]+)/',
             function (array $matches) use ($params, &$orderedParams): string {
                 $key = $matches[1];

@@ -19,8 +19,7 @@ final readonly class Config
         public string $charset = "utf8mb4",
         public string $collation = "utf8mb4_unicode_ci",
         public array $options = []
-    ) {
-    }
+    ) {}
 
     /**
      * Cria configuração a partir de um array associativo.

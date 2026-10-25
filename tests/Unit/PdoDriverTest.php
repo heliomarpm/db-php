@@ -8,6 +8,7 @@ use HeliomarPM\DbPHP\Config;
 use HeliomarPM\DbPHP\Contracts\DriverInterface;
 use HeliomarPM\DbPHP\Drivers\PdoDriver;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 
 final class PdoDriverTest extends TestCase
 {
@@ -60,9 +61,9 @@ final class PdoDriverTest extends TestCase
         try {
             $this->driver->transaction(function (DriverInterface $db): void {
                 $db->execute("INSERT INTO users (name, email) VALUES (?, ?)", ["Carol", "carol@example.com"]);
-                throw new \RuntimeException("Erro simulado para rollback");
+                throw new RuntimeException("Erro simulado para rollback");
             });
-        } catch (\RuntimeException) {
+        } catch (RuntimeException) {
             // rollback esperado
         }
 
@@ -94,7 +95,7 @@ final class PdoDriverTest extends TestCase
         for ($i = 2; $i <= 12; $i++) {
             $this->driver->execute(
                 "INSERT INTO users (name, email, active) VALUES (?, ?, ?)",
-                ["User $i", "user{$i}@example.com", $i % 2 === 0 ? 1 : 0]
+                ["User {$i}", "user{$i}@example.com", $i % 2 === 0 ? 1 : 0]
             );
         }
 

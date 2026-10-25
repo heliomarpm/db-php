@@ -32,7 +32,7 @@ trait PaginatesQueries
         $countSql = "SELECT COUNT(*) AS total_count FROM ({$cleanSql}) AS count_subquery";
 
         $countResult = $this->query($countSql, $params);
-        $total = (int) ($countResult->row["total_count"] ?? 0);
+        $total = (int)($countResult->row["total_count"] ?? 0);
 
         if ($total === 0) {
             return new PaginatedResult(

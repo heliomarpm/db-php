@@ -35,11 +35,11 @@ final class QueryResultTest extends TestCase
 
         $result = new QueryResult($rows, 2, 0.0001);
 
-        $active = $result->firstOrDefault(static fn (array $r): bool => $r["status"] === "active");
+        $active = $result->firstOrDefault(static fn(array $r): bool => $r["status"] === "active");
         $this->assertNotNull($active);
         $this->assertSame(20, $active["id"]);
 
-        $missing = $result->firstOrDefault(static fn (array $r): bool => $r["status"] === "cancelled", ["id" => 0]);
+        $missing = $result->firstOrDefault(static fn(array $r): bool => $r["status"] === "cancelled", ["id" => 0]);
         $this->assertSame(["id" => 0], $missing);
     }
 }

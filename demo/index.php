@@ -68,7 +68,7 @@ CODE,
                 WHERE p.preco >= ?
                 ORDER BY p.preco DESC
             ", [90.00]);
-        }
+        },
     ],
 
     'parametros_nomeados' => [
@@ -134,11 +134,11 @@ CODE,
 
             // Monta objeto com as colunas para exibição na tabela
             $nomes = $res->column('nome_cliente');
-            $data = array_map(fn ($nome, $i) => [
+            $data = array_map(fn($nome, $i) => [
                 'posicao' => $i + 1,
                 'nome_cliente' => $nome,
                 'estado' => 'MG',
-                'metodo' => '$result->column("nome_cliente")'
+                'metodo' => '$result->column("nome_cliente")',
             ], $nomes, array_keys($nomes));
 
             return new \HeliomarPM\DbPHP\Results\QueryResult(
@@ -146,7 +146,7 @@ CODE,
                 count: count($data),
                 elapsedTime: $res->elapsedTime,
             );
-        }
+        },
     ],
 
     'paginacao' => [
@@ -190,7 +190,7 @@ CODE,
                 page: $pagina,
                 perPage: 4
             );
-        }
+        },
     ],
     'join_relacional' => [
         'titulo' => 'Relatório Relacional com Múltiplos JOINs',
@@ -232,7 +232,7 @@ CODE,
                 INNER JOIN produtos pr ON pr.id_produto = i.id_produto
                 ORDER BY p.id_pedido ASC, subtotal DESC
             ");
-        }
+        },
     ],
 
     'db_plus_linq' => [
@@ -271,14 +271,14 @@ CODE,
 
             if (class_exists(\HeliomarPM\LinqPHP\LinqPHP::class)) {
                 $rows = $queryResult->linq()
-                    ->where(fn ($p) => (float)$p['preco'] > 50.00)
+                    ->where(fn($p) => (float)$p['preco'] > 50.00)
                     ->orderByKey('preco', descending: true)
                     ->select([
                         'id_produto'     => 'Código',
                         'nome_produto'   => 'Descrição',
                         'nome_categoria' => 'Categoria',
                         'preco'          => 'Valor Unitário',
-                        'estoque'        => 'Estoque Atual'
+                        'estoque'        => 'Estoque Atual',
                     ])
                     ->take(5)
                     ->toArray();
@@ -293,7 +293,7 @@ CODE,
                 count: count($rows),
                 elapsedTime: $elapsed,
             );
-        }
+        },
     ],
 
     'transacao_commit' => [
@@ -324,7 +324,7 @@ CODE,
             });
 
             return $db->query("SELECT id_conta, titular, saldo, 'Sucesso (Commit)' AS status_transacao FROM contas");
-        }
+        },
     ],
 
     'transacao_rollback' => [
@@ -374,7 +374,7 @@ CODE,
                 count: count($rows),
                 elapsedTime: $res->elapsedTime,
             );
-        }
+        },
     ],
 
     'playground' => [
@@ -394,7 +394,7 @@ CODE,
             }
 
             return $db->query($customSql);
-        }
+        },
     ],
 ];
 

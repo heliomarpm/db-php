@@ -39,33 +39,6 @@ final class PdoDriver implements DriverInterface
         $this->close();
     }
 
-    private function connect(): void
-    {
-        $options = [
-            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-            PDO::ATTR_EMULATE_PREPARES => false,
-            PDO::ATTR_PERSISTENT => false,
-        ];
-
-        foreach ($this->config->options as $key => $value) {
-            $options[(int)$key] = $value;
-        }
-
-        try {
-            if ($this->config->database === ":memory:" || str_ends_with($this->config->database, ".sqlite")) {
-                $dsn = "sqlite:{$this->config->database}";
-                $this->pdo = new PDO($dsn, null, null, $options);
-            } else {
-                $dsn = "mysql:host={$this->config->host};port={$this->config->port};dbname={$this->config->database};charset={$this->config->charset}";
-                $this->pdo = new PDO($dsn, $this->config->username, $this->config->password, $options);
-            }
-        } catch (PDOException $e) {
-            $code = is_numeric($e->getCode()) ? (int)$e->getCode() : 0;
-            throw new ConnectionException("Falha ao conectar via PDO: " . $e->getMessage(), $code, $e);
-        }
-    }
-
     public function query(string $sql, array $params = []): QueryResult
     {
         $this->assertConnected();
@@ -202,6 +175,33 @@ final class PdoDriver implements DriverInterface
     {
         $this->assertConnected();
         return $this->pdo;
+    }
+
+    private function connect(): void
+    {
+        $options = [
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            PDO::ATTR_EMULATE_PREPARES => false,
+            PDO::ATTR_PERSISTENT => false,
+        ];
+
+        foreach ($this->config->options as $key => $value) {
+            $options[(int)$key] = $value;
+        }
+
+        try {
+            if ($this->config->database === ":memory:" || str_ends_with($this->config->database, ".sqlite")) {
+                $dsn = "sqlite:{$this->config->database}";
+                $this->pdo = new PDO($dsn, null, null, $options);
+            } else {
+                $dsn = "mysql:host={$this->config->host};port={$this->config->port};dbname={$this->config->database};charset={$this->config->charset}";
+                $this->pdo = new PDO($dsn, $this->config->username, $this->config->password, $options);
+            }
+        } catch (PDOException $e) {
+            $code = is_numeric($e->getCode()) ? (int)$e->getCode() : 0;
+            throw new ConnectionException("Falha ao conectar via PDO: " . $e->getMessage(), $code, $e);
+        }
     }
 
     /**

@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use HeliomarPM\DbPHP\DB;
 use HeliomarPM\DbPHP\Contracts\DriverInterface;
+use HeliomarPM\DbPHP\DB;
 
 /**
  * Cria e popula uma base SQLite em memória com dados ricos para o laboratório.

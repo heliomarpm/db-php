@@ -75,10 +75,10 @@ final class PaginatedResultTest extends TestCase
 
         $this->assertSame(["Primeiro", "Segundo"], $paginated->column("name"));
 
-        $encontrado = $paginated->firstOrDefault(fn (array $row): bool => (int)$row["id"] === 2);
+        $encontrado = $paginated->firstOrDefault(fn(array $row): bool => (int)$row["id"] === 2);
         $this->assertSame("Segundo", $encontrado["name"] ?? null);
 
-        $naoEncontrado = $paginated->firstOrDefault(fn (array $row): bool => (int)$row["id"] === 99, default: null);
+        $naoEncontrado = $paginated->firstOrDefault(fn(array $row): bool => (int)$row["id"] === 99, default: null);
         $this->assertNull($naoEncontrado);
     }
 
