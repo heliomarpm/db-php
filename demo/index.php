@@ -9,6 +9,34 @@ require_once __DIR__ . '/seed.php';
 $db = createDemoDatabase();
 
 // =========================================================================
+// ENDPOINT JSON REATIVO (API REST para Vue.js)
+// =========================================================================
+if (isset($_GET['api']) && $_GET['api'] === 'paginate') {
+    header('Content-Type: application/json; charset=utf-8');
+    $page = max(1, (int)($_GET['page'] ?? 1));
+    $perPage = max(1, min(50, (int)($_GET['per_page'] ?? 4)));
+    $minPreco = (float)($_GET['min_preco'] ?? 0.0);
+    $search = trim((string)($_GET['q'] ?? ''));
+
+    $sql = "SELECT p.id_produto, p.nome_produto, c.nome_categoria, p.preco, p.estoque
+            FROM produtos p
+            INNER JOIN categorias c ON c.id_categoria = p.id_categoria
+            WHERE p.preco >= :min_preco";
+    $params = ["min_preco" => $minPreco];
+
+    if ($search !== "") {
+        $sql .= " AND (p.nome_produto LIKE :search OR c.nome_categoria LIKE :search)";
+        $params["search"] = "%{$search}%";
+    }
+
+    $sql .= " ORDER BY p.id_produto ASC";
+
+    $paginado = $db->paginate($sql, $params, $page, $perPage);
+    echo json_encode($paginado, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
+// =========================================================================
 // DEFINIÇÃO DOS CENÁRIOS INTERATIVOS
 // =========================================================================
 $cenarios = [
@@ -486,7 +514,7 @@ if (!function_exists('renderGridTable')) {
         body {
             font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
             background-color: #0d1117;
-            color: #e6edf3;
+            color: #333;
         }
         .font-mono { font-family: 'JetBrains Mono', monospace; }
         .text-cyan { color: var(--brand-cyan) !important; }
@@ -551,20 +579,20 @@ if (!function_exists('renderGridTable')) {
             font-size: 0.85rem;
         }
         .table {
-            color: #e6edf3;
+            color: #555;
             background-color: transparent;
         }
         .table-light {
             background-color: #21262d !important;
-            color: #8b949e !important;
+            color: #555 !important;
         }
         .table-striped>tbody>tr:nth-of-type(odd)>* {
             background-color: rgba(255, 255, 255, 0.02);
-            color: #e6edf3;
+            color: #555;
         }
         .table-hover>tbody>tr:hover>* {
             background-color: rgba(0, 163, 255, 0.08);
-            color: #e6edf3;
+            color: #555;
         }
     </style>
 </head>
@@ -731,35 +759,125 @@ if (!function_exists('renderGridTable')) {
             </ul>
 
             <div class="tab-content" id="demoTabsContent">
-                <!-- TAB 1: GRID TABELA -->
+                                <!-- TAB 1: GRID TABELA -->
                 <div class="tab-pane fade show active" id="grid-pane" role="tabpanel">
-                    <?= renderGridTable($linhas) ?>
+                    <?php if ($cenarioAtual === 'paginacao'): ?>
+                        <!-- APLICAÇÃO REATIVA VUE.JS 3 VIA CDN -->
+                        <div id="vue-pagination-app">
+                            <!-- Painel de Controles Reativos -->
+                            <div class="p-3 mb-3 rounded-3 bg-card-subtle border border-secondary border-opacity-25 shadow-sm">
+                                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3 pb-2 border-bottom border-secondary border-opacity-25">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="badge bg-success-subtle text-success border border-success border-opacity-25 font-mono px-2 py-1">
+                                            <i class="bi bi-lightning-charge-fill me-1"></i>Vue 3 Reativo via CDN
+                                        </span>
+                                        <span class="text-secondary small">Paginação, filtros e telemetria sem recarregar a página</span>
+                                    </div>
+                                    <div class="d-flex align-items-center gap-3">
+                                        <span class="text-secondary small font-mono">
+                                            Tempo API: <strong class="text-cyan">{{ responseTimeMs }} ms</strong>
+                                        </span>
+                                        <div v-if="loading" class="spinner-border spinner-border-sm text-cyan" role="status"></div>
+                                    </div>
+                                </div>
 
-                    <?php if (isset($queryResult) && $queryResult instanceof \HeliomarPM\DbPHP\Results\PaginatedResult): ?>
-                        <div class="d-flex flex-wrap align-items-center justify-content-between p-3 mt-3 bg-card-subtle rounded-3 border border-secondary border-opacity-25">
-                            <div class="text-secondary small font-mono">
-                                Exibindo <strong><?= $queryResult->from ?? 0 ?>-<?= $queryResult->to ?? 0 ?></strong> de <strong><?= $queryResult->total ?></strong> registros (Página <?= $queryResult->currentPage ?> de <?= $queryResult->lastPage ?>)
+                                <div class="row g-3 align-items-end">
+                                    <!-- Busca Instantânea -->
+                                    <div class="col-12 col-md-4">
+                                        <label class="form-label small text-secondary text-uppercase font-mono mb-1">
+                                            <i class="bi bi-search me-1"></i> Filtrar Catálogo
+                                        </label>
+                                        <input type="text" v-model="search" @input="debouncedFetch" class="form-control form-control-sm bg-dark text-white border-secondary" placeholder="Buscar por produto ou categoria...">
+                                    </div>
+
+                                    <!-- Slider Preço Mínimo -->
+                                    <div class="col-12 col-md-5">
+                                        <div class="d-flex justify-content-between align-items-center mb-1">
+                                            <label class="form-label small text-secondary text-uppercase font-mono mb-0">
+                                                <i class="bi bi-tag-fill me-1"></i> Preço Mínimo
+                                            </label>
+                                            <span class="badge bg-primary font-mono">R$ {{ minPreco.toFixed(2) }}</span>
+                                        </div>
+                                        <input type="range" v-model.number="minPreco" @input="debouncedFetch" min="0" max="3500" step="50" class="form-range">
+                                    </div>
+
+                                    <!-- Seletor de Itens por Página -->
+                                    <div class="col-12 col-md-3">
+                                        <label class="form-label small text-secondary text-uppercase font-mono mb-1">
+                                            <i class="bi bi-list-ol me-1"></i> Itens por Página
+                                        </label>
+                                        <select v-model.number="perPage" @change="fetchPage(1)" class="form-select form-select-sm bg-dark text-white border-secondary">
+                                            <option :value="2">2 por página</option>
+                                            <option :value="4">4 por página</option>
+                                            <option :value="6">6 por página</option>
+                                            <option :value="10">10 por página</option>
+                                        </select>
+                                    </div>
+                                </div>
                             </div>
-                            <div class="btn-group btn-group-sm mt-2 mt-md-0" role="group">
-                                <?php if ($queryResult->hasPreviousPages): ?>
-                                    <a href="?cenario=paginacao&page=<?= $queryResult->currentPage - 1 ?>" class="btn btn-outline-secondary">« Anterior</a>
-                                <?php else: ?>
-                                    <button class="btn btn-outline-secondary disabled" disabled>« Anterior</button>
-                                <?php endif; ?>
 
-                                <?php for ($p = 1; $p <= $queryResult->lastPage; $p++): ?>
-                                    <a href="?cenario=paginacao&page=<?= $p ?>" class="btn <?= ($p === $queryResult->currentPage) ? 'btn-primary' : 'btn-outline-secondary' ?>">
-                                        <?= $p ?>
-                                    </a>
-                                <?php endfor; ?>
+                            <!-- Tabela Reativa -->
+                            <div class="table-responsive border rounded-3 bg-white shadow-sm position-relative">
+                                <div v-if="loading" class="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center bg-dark bg-opacity-75" style="z-index: 10;">
+                                    <div class="spinner-border text-cyan" role="status"></div>
+                                </div>
 
-                                <?php if ($queryResult->hasMorePages): ?>
-                                    <a href="?cenario=paginacao&page=<?= $queryResult->currentPage + 1 ?>" class="btn btn-outline-secondary">Próxima »</a>
-                                <?php else: ?>
-                                    <button class="btn btn-outline-secondary disabled" disabled>Próxima »</button>
-                                <?php endif; ?>
+                                <table class="table table-hover table-striped align-middle mb-0 font-sans" style="font-size: 0.88rem;">
+                                    <thead class="table-light border-bottom text-uppercase fw-semibold" style="font-size: 0.75rem; letter-spacing: 0.05em;">
+                                        <tr>
+                                            <th class="py-3 px-3">Código</th>
+                                            <th class="py-3 px-3">Produto</th>
+                                            <th class="py-3 px-3">Categoria</th>
+                                            <th class="py-3 px-3">Preço Unitário</th>
+                                            <th class="py-3 px-3">Estoque</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr v-if="items.length === 0">
+                                            <td colspan="5" class="text-center py-4 text-secondary">
+                                                <i class="bi bi-inbox fs-4 d-block mb-1"></i>
+                                                Nenhum produto atende aos filtros atuais.
+                                            </td>
+                                        </tr>
+                                        <tr v-for="item in items" :key="item.id_produto">
+                                            <td class="py-2 px-3 font-mono text-primary">#{{ item.id_produto }}</td>
+                                            <td class="py-2 px-3 fw-semibold">{{ item.nome_produto }}</td>
+                                            <td class="py-2 px-3">
+                                                <span class="badge bg-primary-subtle text-cyan border border-primary border-opacity-25">{{ item.nome_categoria }}</span>
+                                            </td>
+                                            <td class="py-2 px-3 font-mono">
+                                                <strong>R$ {{ Number(item.preco).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}</strong>
+                                            </td>
+                                            <td class="py-2 px-3">
+                                                <span :class="item.estoque <= 10 ? 'badge bg-danger-subtle text-danger border border-danger' : 'badge bg-success-subtle text-success border border-success'">
+                                                    {{ item.estoque }} un
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <!-- Barra de Paginação Reativa -->
+                            <div class="d-flex flex-wrap align-items-center justify-content-between p-3 mt-3 bg-card-subtle rounded-3 border border-secondary border-opacity-25">
+                                <div class="text-secondary small font-mono">
+                                    Exibindo <strong>{{ pagination.from || 0 }}-{{ pagination.to || 0 }}</strong> de <strong>{{ pagination.total || 0 }}</strong> registros (Página {{ pagination.current_page || 1 }} de {{ pagination.last_page || 1 }})
+                                </div>
+                                <div class="btn-group btn-group-sm mt-2 mt-md-0" role="group">
+                                    <button @click="fetchPage(pagination.current_page - 1)" :disabled="!pagination.has_previous" class="btn btn-outline-secondary">
+                                        « Anterior
+                                    </button>
+                                    <button v-for="p in pagination.last_page" :key="p" @click="fetchPage(p)" class="btn" :class="p === pagination.current_page ? 'btn-primary' : 'btn-outline-secondary'">
+                                        {{ p }}
+                                    </button>
+                                    <button @click="fetchPage(pagination.current_page + 1)" :disabled="!pagination.has_more" class="btn btn-outline-secondary">
+                                        Próxima »
+                                    </button>
+                                </div>
                             </div>
                         </div>
+                    <?php else: ?>
+                        <?= renderGridTable($linhas) ?>
                     <?php endif; ?>
                 </div>
 
@@ -845,10 +963,95 @@ if (!function_exists('renderGridTable')) {
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-markup-templating.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-php.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-sql.min.js"></script>
+    <script>
+    if (typeof Vue !== 'undefined' && document.getElementById('vue-pagination-app')) {
+        const { createApp, ref, onMounted } = Vue;
+
+        createApp({
+            setup() {
+                const items = ref([]);
+                const pagination = ref({
+                    total: 0,
+                    per_page: 4,
+                    current_page: 1,
+                    last_page: 1,
+                    from: 0,
+                    to: 0,
+                    has_more: false,
+                    has_previous: false
+                });
+                const search = ref('');
+                const minPreco = ref(0);
+                const perPage = ref(4);
+                const loading = ref(false);
+                const responseTimeMs = ref('0.00');
+                let debounceTimer = null;
+
+                const fetchPage = async (page = 1) => {
+                    loading.value = true;
+                    const t0 = performance.now();
+                    try {
+                        const params = new URLSearchParams({
+                            api: 'paginate',
+                            page: page,
+                            per_page: perPage.value,
+                            min_preco: minPreco.value,
+                            q: search.value
+                        });
+
+                        const res = await fetch('?' + params.toString());
+                        const json = await res.json();
+
+                        items.value = json.data || [];
+                        pagination.value = json.pagination || {};
+                        responseTimeMs.value = (performance.now() - t0).toFixed(2);
+
+                        // Atualiza a aba JSON Bruto com o resultado dinâmico
+                        const jsonBlock = document.getElementById('jsonBlock');
+                        if (jsonBlock) {
+                            jsonBlock.innerText = JSON.stringify(json, null, 4);
+                            if (window.Prism) {
+                                Prism.highlightElement(jsonBlock);
+                            }
+                        }
+                    } catch (err) {
+                        console.error('Erro na requisição paginada Vue:', err);
+                    } finally {
+                        loading.value = false;
+                    }
+                };
+
+                const debouncedFetch = () => {
+                    clearTimeout(debounceTimer);
+                    debounceTimer = setTimeout(() => {
+                        fetchPage(1);
+                    }, 250);
+                };
+
+                onMounted(() => {
+                    fetchPage(1);
+                });
+
+                return {
+                    items,
+                    pagination,
+                    search,
+                    minPreco,
+                    perPage,
+                    loading,
+                    responseTimeMs,
+                    fetchPage,
+                    debouncedFetch
+                };
+            }
+        }).mount('#vue-pagination-app');
+    }
+    </script>
 </body>
 </html>
