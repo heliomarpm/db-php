@@ -34,13 +34,15 @@
     }
   },
   "scripts": {
-    "format:test": "pint --test",
-    "format:fix": "pint",
+    "format": "pint --test --parallel --max-processes=4",
+    "format:fix": "pint --parallel --max-processes=4 --repair --dirty",
+    "format:full": "pint --parallel --max-processes=4 --repair",
+    "format:def": "pint --preset=psr12 --parallel --max-processes=4 --repair",
     "lint": "phpstan analyse",
     "test": "phpunit --configuration phpunit.xml --colors=always",
     "start": "php -S localhost:8000 demo/index.php",
     "check": [
-      "@format:test",
+      "@format",
       "@lint",
       "@test"
     ]
@@ -56,6 +58,6 @@
     "phpunit/phpunit": "^11.0 || ^12.0 || ^13.0",
     "phpstan/phpstan": "*",
     "laravel/pint": "^1.32",
-    "heliomarpm/linq-php": "^2.0"
+    "heliomarpm/linq-php": "^2.1"
   }
 }
