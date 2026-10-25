@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace HeliomarPM\DbPHP\Drivers;
 
+use HeliomarPM\DbPHP\Concerns\PaginatesQueries;
 use HeliomarPM\DbPHP\Config;
 use HeliomarPM\DbPHP\Contracts\DriverInterface;
 use HeliomarPM\DbPHP\Exceptions\ConnectionException;
@@ -16,6 +17,8 @@ use Throwable;
 
 final class PdoDriver implements DriverInterface
 {
+    use PaginatesQueries;
+
     private ?PDO $pdo;
     private int $affectedRows = 0;
 

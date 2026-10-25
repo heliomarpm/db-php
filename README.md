@@ -267,21 +267,55 @@ $destaques = DB::query("
 
 ---
 
-### 7. Consultas com Paginação (LIMIT e OFFSET)
+### 7. Paginação Nativa com `DB::paginate()`
+
+O método `DB::paginate()` calcula automaticamente o `COUNT(*)` total da consulta, injeta de forma segura as cláusulas `LIMIT` e `OFFSET` e retorna um DTO imutável e estruturado (`PaginatedResult`):
 
 ```php
-$pagina = 2;
-$porPagina = 10;
-$offset = ($pagina - 1) * $porPagina;
+$paginado = DB::paginate(
+    sql: "SELECT * FROM produtos WHERE preco >= :preco ORDER BY id_produto DESC",
+    params: ["preco" => 50.00],
+    page: 1,
+    perPage: 15
+);
 
-$produtosPaginados = DB::query("
-    SELECT * FROM produtos
-    ORDER BY id_produto ASC
-    LIMIT :limit OFFSET :offset
-", [
-    "limit"  => $porPagina,
-    "offset" => $offset,
-]);
+// 📋 Dados da Página Atual:
+$itens = $paginado->items; // Array de linhas da página (ou iteração via foreach)
+
+// 📊 Metadados de Paginação:
+echo $paginado->total;            // Total geral de registros encontrados (ex: 45)
+echo $paginado->currentPage;      // Página atual: 1
+echo $paginado->lastPage;         // Total de páginas calculadas: 3
+echo $paginado->perPage;          // Itens por página: 15
+echo $paginado->from;             // Índice inicial: 1
+echo $paginado->to;               // Índice final: 15
+echo $paginado->hasMorePages;     // true se houver próxima página
+echo $paginado->hasPreviousPages; // true se houver página anterior
+echo $paginado->elapsedTime;      // Tempo total somado (contagem + consulta)
+
+// ⚡ Serialização JSON direta para APIs REST:
+header('Content-Type: application/json');
+echo json_encode($paginado);
+```
+
+#### Resposta JSON gerada automaticamente:
+```json
+{
+  "data": [
+    { "id_produto": 110, "nome_produto": "Impressora 3D", "preco": 3450.00 }
+  ],
+  "pagination": {
+    "total": 45,
+    "per_page": 15,
+    "current_page": 1,
+    "last_page": 3,
+    "from": 1,
+    "to": 15,
+    "has_more": true,
+    "has_previous": false
+  },
+  "elapsed_time": 0.000325
+}
 ```
 
 ---

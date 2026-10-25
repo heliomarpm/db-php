@@ -89,4 +89,38 @@ final class PdoDriverTest extends TestCase
         );
         $this->assertSame(1, $result2->count);
     }
+    public function testPaginateWithPositionalAndNamedParameters(): void
+    {
+        for ($i = 2; $i <= 12; $i++) {
+            $this->driver->execute(
+                "INSERT INTO users (name, email, active) VALUES (?, ?, ?)",
+                ["User $i", "user{$i}@example.com", $i % 2 === 0 ? 1 : 0]
+            );
+        }
+
+        // Teste Posicional: página 1 com 5 itens
+        $page1 = $this->driver->paginate(
+            "SELECT * FROM users WHERE active = ? ORDER BY id ASC",
+            [1],
+            page: 1,
+            perPage: 5
+        );
+
+        $this->assertSame(5, $page1->count());
+        $this->assertSame(6, $page1->total);
+        $this->assertSame(2, $page1->lastPage);
+        $this->assertTrue($page1->hasMorePages);
+
+        // Teste Nomeado: página 2 com 5 itens
+        $page2 = $this->driver->paginate(
+            "SELECT * FROM users WHERE active = :active ORDER BY id ASC",
+            ["active" => 1],
+            page: 2,
+            perPage: 5
+        );
+
+        $this->assertSame(1, $page2->count());
+        $this->assertFalse($page2->hasMorePages);
+        $this->assertTrue($page2->hasPreviousPages);
+    }
 }

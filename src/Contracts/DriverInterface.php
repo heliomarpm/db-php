@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace HeliomarPM\DbPHP\Contracts;
 
+use HeliomarPM\DbPHP\Results\PaginatedResult;
 use HeliomarPM\DbPHP\Results\QueryResult;
 
 interface DriverInterface
@@ -14,6 +15,13 @@ interface DriverInterface
      * @param array<int|string, mixed> $params
      */
     public function query(string $sql, array $params = []): QueryResult;
+
+    /**
+     * Executa uma consulta paginada retornando registros e metadados de paginação.
+     *
+     * @param array<int|string, mixed> $params
+     */
+    public function paginate(string $sql, array $params = [], int $page = 1, int $perPage = 15): PaginatedResult;
 
     /**
      * Executa uma instrução de escrita (INSERT / UPDATE / DELETE / DDL) e retorna o número de linhas afetadas.

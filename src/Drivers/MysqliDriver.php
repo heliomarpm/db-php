@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace HeliomarPM\DbPHP\Drivers;
 
+use HeliomarPM\DbPHP\Concerns\PaginatesQueries;
 use Exception;
 use HeliomarPM\DbPHP\Config;
 use HeliomarPM\DbPHP\Contracts\DriverInterface;
@@ -17,6 +18,8 @@ use Throwable;
 
 final class MysqliDriver implements DriverInterface
 {
+    use PaginatesQueries;
+
     private ?mysqli $conn;
     private int $affectedRows = 0;
     private bool $inTransaction = false;

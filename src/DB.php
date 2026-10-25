@@ -8,6 +8,7 @@ use HeliomarPM\DbPHP\Contracts\DriverInterface;
 use HeliomarPM\DbPHP\Drivers\MysqliDriver;
 use HeliomarPM\DbPHP\Drivers\PdoDriver;
 use HeliomarPM\DbPHP\Exceptions\ConnectionException;
+use HeliomarPM\DbPHP\Results\PaginatedResult;
 use HeliomarPM\DbPHP\Results\QueryResult;
 use InvalidArgumentException;
 
@@ -62,11 +63,29 @@ final class DB
     }
 
     /**
+     * Executa consulta paginada na conexão padrão ou ativa.
+     *
+     * @param array<int|string, mixed> $params
+     */
+    public static function paginate(string $sql, array $params = [], int $page = 1, int $perPage = 15): PaginatedResult
+    {
+        return self::connection()->paginate($sql, $params, $page, $perPage);
+    }
+
+    /**
      * @param array<int|string, mixed> $params
      */
     public static function execute(string $sql, array $params = []): int
     {
         return self::connection()->execute($sql, $params);
+    }
+
+    /**
+     * Retorna o ID gerado pelo último INSERT na conexão ativa.
+     */
+    public static function lastInsertId(): int|string
+    {
+        return self::connection()->lastInsertId();
     }
 
     /**

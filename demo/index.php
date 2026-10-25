@@ -121,6 +121,49 @@ CODE,
         }
     ],
 
+    'paginacao' => [
+        'titulo' => 'Paginação Nativa (PaginatedResult)',
+        'tag'    => 'PAGINATION',
+        'badge'  => 'bg-success',
+        'desc'   => 'Executa consulta paginada com contagem automática (COUNT) e injeção de LIMIT/OFFSET, retornando metadados completos de paginação.',
+        'codigo' => <<<'CODE'
+$pagina = (int)($_GET['page'] ?? 1);
+$porPagina = 4;
+
+// Paginação automática com parâmetros nomeados:
+$paginado = DB::paginate(
+    sql: "SELECT p.id_produto, p.nome_produto, c.nome_categoria, p.preco, p.estoque
+          FROM produtos p
+          INNER JOIN categorias c ON c.id_categoria = p.id_categoria
+          WHERE p.preco > :preco
+          ORDER BY p.id_produto ASC",
+    params: ["preco" => 50.00],
+    page: $pagina,
+    perPage: $porPagina
+);
+
+// Metadados ricos disponíveis:
+$itens       = $paginado->items;           // 4 itens desta página
+$total       = $paginado->total;           // 9 produtos no total
+$paginaAtual = $paginado->currentPage;     // 1, 2 ou 3
+$ultimaPagina= $paginado->lastPage;        // 3
+$faixa       = "De {$paginado->from} até {$paginado->to}";
+$temMais     = $paginado->hasMorePages;    // true se houver próxima
+CODE,
+        'run' => function (\HeliomarPM\DbPHP\Contracts\DriverInterface $db) {
+            $pagina = (int)($_GET['page'] ?? 1);
+            return $db->paginate(
+                "SELECT p.id_produto, p.nome_produto, c.nome_categoria, p.preco, p.estoque
+                 FROM produtos p
+                 INNER JOIN categorias c ON c.id_categoria = p.id_categoria
+                 WHERE p.preco > :preco
+                 ORDER BY p.id_produto ASC",
+                ["preco" => 50.00],
+                page: $pagina,
+                perPage: 4
+            );
+        }
+    ],
     'join_relacional' => [
         'titulo' => 'Relatório Relacional com Múltiplos JOINs',
         'tag'    => 'RELATIONAL JOIN',
@@ -340,10 +383,17 @@ $startMem = memory_get_usage();
 
 try {
     $queryResult = $dadosCenario['run']($db);
-    $linhas = $queryResult->rows;
-    $totalLinhas = $queryResult->count;
-    $tempoExecucao = number_format($queryResult->elapsedTime, 6);
-    $tempoMs = number_format($queryResult->elapsedTime * 1000, 3);
+    if ($queryResult instanceof \HeliomarPM\DbPHP\Results\PaginatedResult) {
+        $linhas = $queryResult->items;
+        $totalLinhas = $queryResult->total;
+        $tempoExecucao = number_format($queryResult->elapsedTime, 6);
+        $tempoMs = number_format($queryResult->elapsedTime * 1000, 3);
+    } else {
+        $linhas = $queryResult->rows;
+        $totalLinhas = $queryResult->count;
+        $tempoExecucao = number_format($queryResult->elapsedTime, 6);
+        $tempoMs = number_format($queryResult->elapsedTime * 1000, 3);
+    }
 } catch (\Throwable $e) {
     $erroExecucao = $e->getMessage();
     $linhas = [];
@@ -684,6 +734,33 @@ if (!function_exists('renderGridTable')) {
                 <!-- TAB 1: GRID TABELA -->
                 <div class="tab-pane fade show active" id="grid-pane" role="tabpanel">
                     <?= renderGridTable($linhas) ?>
+
+                    <?php if (isset($queryResult) && $queryResult instanceof \HeliomarPM\DbPHP\Results\PaginatedResult): ?>
+                        <div class="d-flex flex-wrap align-items-center justify-content-between p-3 mt-3 bg-card-subtle rounded-3 border border-secondary border-opacity-25">
+                            <div class="text-secondary small font-mono">
+                                Exibindo <strong><?= $queryResult->from ?? 0 ?>-<?= $queryResult->to ?? 0 ?></strong> de <strong><?= $queryResult->total ?></strong> registros (Página <?= $queryResult->currentPage ?> de <?= $queryResult->lastPage ?>)
+                            </div>
+                            <div class="btn-group btn-group-sm mt-2 mt-md-0" role="group">
+                                <?php if ($queryResult->hasPreviousPages): ?>
+                                    <a href="?cenario=paginacao&page=<?= $queryResult->currentPage - 1 ?>" class="btn btn-outline-secondary">« Anterior</a>
+                                <?php else: ?>
+                                    <button class="btn btn-outline-secondary disabled" disabled>« Anterior</button>
+                                <?php endif; ?>
+
+                                <?php for ($p = 1; $p <= $queryResult->lastPage; $p++): ?>
+                                    <a href="?cenario=paginacao&page=<?= $p ?>" class="btn <?= ($p === $queryResult->currentPage) ? 'btn-primary' : 'btn-outline-secondary' ?>">
+                                        <?= $p ?>
+                                    </a>
+                                <?php endfor; ?>
+
+                                <?php if ($queryResult->hasMorePages): ?>
+                                    <a href="?cenario=paginacao&page=<?= $queryResult->currentPage + 1 ?>" class="btn btn-outline-secondary">Próxima »</a>
+                                <?php else: ?>
+                                    <button class="btn btn-outline-secondary disabled" disabled>Próxima »</button>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    <?php endif; ?>
                 </div>
 
                 <!-- TAB 2: CÓDIGO PHP -->
