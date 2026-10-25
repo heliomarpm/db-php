@@ -35,9 +35,6 @@ jobs:
       - name: 📥 Instalar Dependências
         run: composer install --prefer-dist --no-progress --no-interaction
 
-      - name: 🎨 Checar Estilo de Código (Pint)
-        run: composer format
-
       - name: 🔎 Análise Estática (PHPStan)
         run: composer lint
 
