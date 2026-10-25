@@ -60,7 +60,7 @@ $tempo = $result->elapsedTime; // ex: 0.000180s
 $total = $result->count;       // ex: 7 registros
 $linhas = $result->rows;
 CODE,
-        'run' => function (\HeliomarPM\DbPHP\Contracts\DriverInterface $db) {
+        'run' => function (HeliomarPM\DbPHP\Contracts\DriverInterface $db) {
             return $db->query("
                 SELECT p.id_produto, p.nome_produto, c.nome_categoria, p.preco, p.estoque
                 FROM produtos p
@@ -94,7 +94,7 @@ $tempo = $result->elapsedTime;
 $total = $result->count;
 $linhas = $result->rows;
 CODE,
-        'run' => function (\HeliomarPM\DbPHP\Contracts\DriverInterface $db) {
+        'run' => function (HeliomarPM\DbPHP\Contracts\DriverInterface $db) {
             return $db->query("
                 SELECT p.id_produto, p.nome_produto, c.nome_categoria, p.preco, p.estoque
                 FROM produtos p
@@ -105,7 +105,7 @@ CODE,
                 "min_preco"   => 100.00,
                 "min_estoque" => 10,
             ]);
-        }
+        },
     ],
     'extracao_coluna' => [
         'titulo' => 'Extração de Coluna Direta ($result->column)',
@@ -124,7 +124,7 @@ $result = DB::query("
 // Extração direta sem loops:
 $nomes = $result->column('nome_cliente');
 CODE,
-        'run' => function (\HeliomarPM\DbPHP\Contracts\DriverInterface $db) {
+        'run' => function (HeliomarPM\DbPHP\Contracts\DriverInterface $db) {
             $res = $db->query("
                 SELECT nome_cliente, uf, saldo_credito
                 FROM clientes
@@ -141,7 +141,7 @@ CODE,
                 'metodo' => '$result->column("nome_cliente")',
             ], $nomes, array_keys($nomes));
 
-            return new \HeliomarPM\DbPHP\Results\QueryResult(
+            return new HeliomarPM\DbPHP\Results\QueryResult(
                 rows: $data,
                 count: count($data),
                 elapsedTime: $res->elapsedTime,
@@ -178,7 +178,7 @@ $ultimaPagina= $paginado->lastPage;        // 3
 $faixa       = "De {$paginado->from} até {$paginado->to}";
 $temMais     = $paginado->hasMorePages;    // true se houver próxima
 CODE,
-        'run' => function (\HeliomarPM\DbPHP\Contracts\DriverInterface $db) {
+        'run' => function (HeliomarPM\DbPHP\Contracts\DriverInterface $db) {
             $pagina = (int)($_GET['page'] ?? 1);
             return $db->paginate(
                 "SELECT p.id_produto, p.nome_produto, c.nome_categoria, p.preco, p.estoque
@@ -215,7 +215,7 @@ $result = DB::query("
     ORDER BY p.id_pedido ASC, subtotal DESC
 ");
 CODE,
-        'run' => function (\HeliomarPM\DbPHP\Contracts\DriverInterface $db) {
+        'run' => function (HeliomarPM\DbPHP\Contracts\DriverInterface $db) {
             return $db->query("
                 SELECT
                     p.id_pedido,
@@ -261,7 +261,7 @@ $itensTransformados = DB::query("
 ->take(5)
 ->toArray();
 CODE,
-        'run' => function (\HeliomarPM\DbPHP\Contracts\DriverInterface $db) {
+        'run' => function (HeliomarPM\DbPHP\Contracts\DriverInterface $db) {
             $start = microtime(true);
             $queryResult = $db->query("
                 SELECT p.id_produto, p.nome_produto, c.nome_categoria, p.preco, p.estoque
@@ -269,7 +269,7 @@ CODE,
                 INNER JOIN categorias c ON c.id_categoria = p.id_categoria
             ");
 
-            if (class_exists(\HeliomarPM\LinqPHP\LinqPHP::class)) {
+            if (class_exists(HeliomarPM\LinqPHP\LinqPHP::class)) {
                 $rows = $queryResult->linq()
                     ->where(fn($p) => (float)$p['preco'] > 50.00)
                     ->orderByKey('preco', descending: true)
@@ -288,7 +288,7 @@ CODE,
 
             $elapsed = microtime(true) - $start;
 
-            return new \HeliomarPM\DbPHP\Results\QueryResult(
+            return new HeliomarPM\DbPHP\Results\QueryResult(
                 rows: $rows,
                 count: count($rows),
                 elapsedTime: $elapsed,
@@ -317,7 +317,7 @@ DB::transaction(function ($driver) {
 // Consulta o saldo atualizado de todas as contas:
 $contas = DB::query("SELECT * FROM contas");
 CODE,
-        'run' => function (\HeliomarPM\DbPHP\Contracts\DriverInterface $db) {
+        'run' => function (HeliomarPM\DbPHP\Contracts\DriverInterface $db) {
             $db->transaction(function ($driver) {
                 $driver->execute("UPDATE contas SET saldo = saldo - ? WHERE id_conta = ?", [1500.00, 1]);
                 $driver->execute("UPDATE contas SET saldo = saldo + ? WHERE id_conta = ?", [1500.00, 2]);
@@ -351,14 +351,14 @@ try {
 // Saldos permanecem intactos:
 $contas = DB::query("SELECT * FROM contas");
 CODE,
-        'run' => function (\HeliomarPM\DbPHP\Contracts\DriverInterface $db) {
+        'run' => function (HeliomarPM\DbPHP\Contracts\DriverInterface $db) {
             $mensagemErro = '';
             try {
                 $db->transaction(function ($driver) {
                     $driver->execute("UPDATE contas SET saldo = saldo - ? WHERE id_conta = ?", [2000.00, 1]);
-                    throw new \RuntimeException("Erro intencional: Simulação de falha de conexão na transferência!");
+                    throw new RuntimeException("Erro intencional: Simulação de falha de conexão na transferência!");
                 });
-            } catch (\Throwable $e) {
+            } catch (Throwable $e) {
                 $mensagemErro = $e->getMessage();
             }
 
@@ -369,7 +369,7 @@ CODE,
                 return $row;
             }, $res->rows);
 
-            return new \HeliomarPM\DbPHP\Results\QueryResult(
+            return new HeliomarPM\DbPHP\Results\QueryResult(
                 rows: $rows,
                 count: count($rows),
                 elapsedTime: $res->elapsedTime,
@@ -387,7 +387,7 @@ CODE,
 // Tabelas: clientes, categorias, produtos, pedidos, itens_pedido, contas
 $result = DB::query($sqlCustomizado);
 CODE,
-        'run' => function (\HeliomarPM\DbPHP\Contracts\DriverInterface $db) {
+        'run' => function (HeliomarPM\DbPHP\Contracts\DriverInterface $db) {
             $customSql = trim($_POST['custom_sql'] ?? $_GET['sql'] ?? "SELECT * FROM produtos WHERE estoque < 20");
             if (empty($customSql)) {
                 $customSql = "SELECT * FROM produtos WHERE estoque < 20";
@@ -411,7 +411,7 @@ $startMem = memory_get_usage();
 
 try {
     $queryResult = $dadosCenario['run']($db);
-    if ($queryResult instanceof \HeliomarPM\DbPHP\Results\PaginatedResult) {
+    if ($queryResult instanceof HeliomarPM\DbPHP\Results\PaginatedResult) {
         $linhas = $queryResult->items;
         $totalLinhas = $queryResult->total;
         $tempoExecucao = number_format($queryResult->elapsedTime, 6);
@@ -422,7 +422,7 @@ try {
         $tempoExecucao = number_format($queryResult->elapsedTime, 6);
         $tempoMs = number_format($queryResult->elapsedTime * 1000, 3);
     }
-} catch (\Throwable $e) {
+} catch (Throwable $e) {
     $erroExecucao = $e->getMessage();
     $linhas = [];
     $totalLinhas = 0;
