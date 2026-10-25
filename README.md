@@ -343,9 +343,10 @@ composer test
 # Análise estática de tipos (PHPStan no Nível 8 mais rigoroso)
 composer lint
 
-# Validação e formatação de código (PSR-12 com Laravel Pint)
-composer format:test
+# Validação e formatação de código (Laravel Pint)
+composer format
 composer format:fix
+composer format:full
 
 # Verificação completa da suíte
 composer check

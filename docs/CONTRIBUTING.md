@@ -28,8 +28,9 @@ Agradecemos pelo seu interesse em contribuir com o DbPHP! Sua ajuda torna esta b
 
 ## 📦 Scripts do Projeto
 
-* `composer format:test` — Verifica a conformidade de formatação com Laravel Pint (PSR-12).
-* `composer format:fix` — Aplica correções automáticas de formatação com Laravel Pint.
+* `composer format` — Verifica a conformidade de formatação com Laravel Pint.
+* `composer format:fix` — Corrige arquivos alterados (dirty) com Laravel Pint.
+* `composer format:full` — Aplica correções em todo o projeto com Laravel Pint.
 * `composer lint` — Executa a análise estática formal de código com PHPStan.
 * `composer test` — Executa a suíte de testes unitários com PHPUnit.
 * `composer check` — Executa a validação completa da suíte (formatação, lint e testes).
