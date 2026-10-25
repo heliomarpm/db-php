@@ -10,7 +10,7 @@ Utilize este modelo se encontrar um **bug reproduzível** ou comportamento inesp
 
 - Descreva claramente o problema.
 - Forneça os passos para reproduzir (se possível, inclua um exemplo mínimo de código).
-- Inclua informações do ambiente (versão do PHP, sistema operacional, versão do LinqPHP).
+- Inclua informações do ambiente (versão do PHP, sistema operacional, versão do DbPHP).
 
 👉 Selecione o modelo **"🐛 Relato de Bug"** ao criar a issue.
 

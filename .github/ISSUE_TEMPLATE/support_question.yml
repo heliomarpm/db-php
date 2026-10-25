@@ -1,5 +1,5 @@
 name: "🤔 Pergunta ou Dúvida de Uso"
-description: Fazer uma pergunta ou pedir ajuda sobre o uso do LinqPHP.
+description: Fazer uma pergunta ou pedir ajuda sobre o uso do DbPHP.
 labels:
   - question
   - needs-triage

@@ -25,9 +25,10 @@ Vincule quaisquer issues relacionadas (ex.: `Closes #42`, `Fixes #99`).
 
 ## 🚨 Checklist
 
-- [ ] O código segue os padrões do projeto (PSR-12, PHP 8.1+)
+- [ ] O código segue os padrões do projeto (PSR-12, PHP 8.2+)
+- [ ] Análise estática passou sem erros (`composer lint`)
 - [ ] Testes foram adicionados ou atualizados (`composer test`)
-- [ ] Análise estática passou sem erros (`composer phpstan`)
+- [ ] Suíte completa executada com sucesso (`composer check`)
 - [ ] Documentação foi atualizada (se necessário)
 - [ ] Alterações validadas localmente
 

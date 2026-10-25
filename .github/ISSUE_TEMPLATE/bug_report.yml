@@ -1,5 +1,5 @@
 name: "🐛 Relato de Bug"
-description: Relatar um bug reproduzível no LinqPHP.
+description: Relatar um bug reproduzível.
 labels:
   - bug
   - needs-triage
@@ -63,7 +63,7 @@ body:
     attributes:
       label: "Versão do PHP"
       description: "Saída de: php -v"
-      placeholder: "ex.: 8.1.27, 8.2.14, 8.3.1, 8.4.11"
+      placeholder: "ex.: 8.2.14, 8.3.1, 8.4.11"
     validations:
       required: true
 
@@ -77,10 +77,10 @@ body:
       required: true
 
   - type: input
-    id: linq-version
+    id: db-php-version
     attributes:
-      label: "Versão do LinqPHP"
-      placeholder: "ex.: 0.1.0 ou commit hash"
+      label: "Versão do DbPHP"
+      placeholder: "ex.: 1.1.0 ou commit hash"
     validations:
       required: false
 

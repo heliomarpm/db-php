@@ -4,7 +4,7 @@
 > Ao interagir com este repositório, organização ou comunidade, você concorda em cumprir seus termos.
 
 Olá! 👋 \
-Ficamos felizes que você esteja usando o LinqPHP e queremos ajudar.
+Ficamos felizes que você esteja usando o DbPHP e queremos ajudar.
 Para nos ajudar a ajudá-lo(a), por favor leia as seguintes orientações.
 
 Lembre-se de que os mantenedores e colaboradores deste projeto de código aberto atuam de forma voluntária em seu tempo livre.
@@ -22,13 +22,13 @@ Antes de abrir uma dúvida ou suporte, consulte nossa documentação:
 
 ## 🐛 Relato de Bugs
 
-Se você encontrou um erro no código, abra uma issue no nosso [Rastreador de Issues](https://github.com/heliomarpm/linq-php/issues).
+Se você encontrou um erro no código, abra uma issue no nosso [Rastreador de Issues](https://github.com/heliomarpm/db-php/issues).
 Certifique-se de preencher o modelo de **Bug Report** fornecendo todas as informações necessárias para reprodução.
 
 ## 💡 Sugestões de Recursos (Feature Requests)
 
-Tem uma ideia para melhorar o LinqPHP? Adoraríamos conhecer!
-Envie sua proposta pelo [Rastreador de Issues](https://github.com/heliomarpm/linq-php/issues) utilizando o modelo de **Feature Request**.
+Tem uma ideia para melhorar o DbPHP? Adoraríamos conhecer!
+Envie sua proposta pelo [Rastreador de Issues](https://github.com/heliomarpm/db-php/issues) utilizando o modelo de **Feature Request**.
 
 ## 💬 Dúvidas e Comunidade
 

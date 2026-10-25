@@ -1,5 +1,5 @@
 name: '✨ Solicitação de Recurso'
-description: Sugerir uma nova funcionalidade ou melhoria no LinqPHP.
+description: Sugerir uma nova funcionalidade ou melhoria no DbPHP.
 labels:
   - enhancement
   - needs-triage
