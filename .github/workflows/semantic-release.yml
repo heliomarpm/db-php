@@ -1,0 +1,34 @@
+name: "Semantic Release"
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - 'CHANGELOG.md'
+  workflow_dispatch:
+    inputs:
+      strict-mode:
+        description: 'Validar Conventional Commits rigorosamente'
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  release:
+    uses: heliomarpm/reusable-workflows/.github/workflows/cd-semantic-release.yml@main
+    secrets:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    with:
+      skip-version-file: false
+      strict-conventional-commits: ${{ inputs.strict-mode != false }}
+      changelog-title: |
+        # 📦 Changelog
+
+        Todas as alterações notáveis neste projeto serão documentadas neste arquivo.
+
+        O formato é baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).

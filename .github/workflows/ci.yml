@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test:
+    name: PHP ${{ matrix.php }}
+    runs-on: ubuntu-latest
+
+    # A "matrix" permite rodar o mesmo teste em várias versões do PHP simultaneamente
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.1','8.4']
+
+    steps:
+      - name: 📦 Checkout do código
+        uses: actions/checkout@v7
+
+      - name: 🐘 Configurar PHP ${{ matrix.php }}
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none # Desativa a cobertura de código para deixar o teste mais rápido
+          tools: composer:v2
+
+      - name: 🔍 Validar composer.json
+        run: composer validate --strict
+
+      - name: 📥 Instalar Dependências
+        run: composer install --prefer-dist --no-progress --no-interaction
+
+      - name: 🧪 Rodar Testes Unitários (PHPUnit)
+        run: composer test
+
+      - name: 🚀 Rodar Benchmarks de Performance Customizado
+        run: composer bench
+
+      - name: 🚀 Rodar Benchmarks de Performance (PHPBench)
+        # O PHPBench falhará o build se houver erro de sintaxe ou vazamento de memória grave
+        run: vendor/bin/phpbench run --report=aggregate

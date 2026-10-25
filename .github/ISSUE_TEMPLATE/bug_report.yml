@@ -1,0 +1,102 @@
+name: "🐛 Relato de Bug"
+description: Relatar um bug reproduzível no LinqPHP.
+labels:
+  - bug
+  - needs-triage
+body:
+  - type: markdown
+    attributes:
+      value: "Por favor, leia e siga as instruções antes de enviar uma issue:"
+
+  - type: markdown
+    attributes:
+      value: |
+        - Verifique a documentação e o [README](../../README.md) — eles já podem conter orientações ou alternativas para o seu caso.
+        - Certifique-se de que o problema já não foi [relatado](../../issues).
+        - Verifique se o bug já não foi corrigido na versão mais recente.
+
+  - type: markdown
+    attributes:
+      value: "⚠️👆 Por favor, leia as instruções acima antes de enviar a issue 👆⚠️"
+
+  - type: textarea
+    id: description
+    attributes:
+      label: "Descrição do Bug"
+      description: Uma descrição clara e concisa do problema encontrado.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: "Passos para Reproduzir"
+      description: |
+        Etapas ou trecho de código mínimo para reproduzir o bug.
+        Se possível, forneça um script PHP reproduzível ou repositório de exemplo.
+    validations:
+      required: true
+
+  - type: textarea
+    id: code-snippet
+    attributes:
+      label: "Trecho de Código"
+      description: Exemplo mínimo reproduzível em PHP.
+      render: php
+    validations:
+      required: false
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: "Comportamento Esperado"
+      description: Uma descrição clara e concisa do que você esperava que acontecesse.
+    validations:
+      required: false
+
+  - type: markdown
+    attributes:
+      value: "**Ambiente**"
+
+  - type: input
+    id: php-version
+    attributes:
+      label: "Versão do PHP"
+      description: "Saída de: php -v"
+      placeholder: "ex.: 8.1.27, 8.2.14, 8.3.1, 8.4.11"
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: "Sistema Operacional"
+      description: "Informe o seu sistema operacional."
+      placeholder: "ex.: Windows 11, Ubuntu 22.04, macOS 14"
+    validations:
+      required: true
+
+  - type: input
+    id: linq-version
+    attributes:
+      label: "Versão do LinqPHP"
+      placeholder: "ex.: 0.1.0 ou commit hash"
+    validations:
+      required: false
+
+  - type: textarea
+    id: debug-logs
+    attributes:
+      label: "Logs ou Stack Trace (Opcional)"
+      description: Cole aqui mensagens de erro, exceções ou stack traces para auxiliar no diagnóstico.
+      render: text
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: "Contexto Adicional"
+      description: Qualquer outra informação relevante sobre o problema.
+    validations:
+      required: false

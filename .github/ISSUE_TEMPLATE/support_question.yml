@@ -1,0 +1,33 @@
+name: "🤔 Pergunta ou Dúvida de Uso"
+description: Fazer uma pergunta ou pedir ajuda sobre o uso do LinqPHP.
+labels:
+  - question
+  - needs-triage
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Tem alguma dúvida? Antes de enviar, verifique se ela já foi respondida em:
+        - [Issues existentes](../../issues)
+        - [README](../../README.md) e documentação do projeto
+
+  - type: markdown
+    attributes:
+      value: "⚠️👆 Por favor, leia as instruções acima antes de enviar a issue 👆⚠️"
+
+  - type: textarea
+    id: question
+    attributes:
+      label: "Sua Pergunta"
+      description: Forneça o máximo de detalhes possível para que possamos ajudar da melhor forma.
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: "Contexto ou Exemplo de Código"
+      description: Compartilhe o código relevante, dados de entrada ou configuração utilizada.
+      render: php
+    validations:
+      required: false

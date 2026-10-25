@@ -1,0 +1,55 @@
+name: '✨ Solicitação de Recurso'
+description: Sugerir uma nova funcionalidade ou melhoria no LinqPHP.
+labels:
+  - enhancement
+  - needs-triage
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Obrigado por dedicar seu tempo para sugerir uma melhoria! Por favor, pesquise nas [issues existentes](../../issues) para evitar duplicatas.
+
+  - type: markdown
+    attributes:
+      value: "⚠️👆 Por favor, leia as instruções acima antes de enviar a issue 👆⚠️"
+
+  - type: textarea
+    id: description
+    attributes:
+      label: 'Descrição da Funcionalidade ou Melhoria'
+      description: Forneça uma descrição clara e concisa do que você gostaria de ver implementado.
+    validations:
+      required: true
+
+  - type: textarea
+    id: motivation
+    attributes:
+      label: 'Problema ou Caso de Uso'
+      description: Explique qual problema esse recurso resolveria ou qual caso de uso ele atenderia.
+    validations:
+      required: false
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: 'Solução Proposta ou Design da API'
+      description: Descreva como você imagina que esse método/recurso deveria funcionar (ex.: assinatura fluida, sintaxe).
+      render: php
+    validations:
+      required: false
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 'Alternativas Consideradas'
+      description: Você considerou outras abordagens ou alternativas para contornar essa necessidade?
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: 'Contexto Adicional'
+      description: Adicione qualquer outro contexto, links ou referências que ajudem a ilustrar a solicitação.
+    validations:
+      required: false

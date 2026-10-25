@@ -1,0 +1,43 @@
+name: "📝 Documentação"
+description: Relatar um erro, seção desatualizada ou trecho que precisa de esclarecimento.
+labels:
+  - documentation
+  - needs-triage
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Se você encontrou um trecho que precisa de esclarecimento ou uma melhoria na documentação, sinta-se à vontade para abrir um pull request ou descrever o conteúdo abaixo.
+
+  - type: markdown
+    attributes:
+      value: "⚠️👆 Por favor, leia as instruções acima antes de enviar a issue 👆⚠️"
+
+  - type: textarea
+    id: content
+    attributes:
+      label: "Seção/Conteúdo a ser Melhorado"
+      description: Cite a seção ou forneça um link para o trecho da documentação que precisa de ajuste.
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: "Melhoria Sugerida"
+      description: Descreva o que está confuso, desatualizado ou incorreto, e sugira como melhorar.
+    validations:
+      required: true
+
+  - type: textarea
+    id: files
+    attributes:
+      label: "Arquivo(s) Relevante(s)"
+      description: Liste os arquivos envolvidos se conhecidos (ex.: README.md, docs/CONTRIBUTING.md).
+      placeholder: |
+        ex.:
+        README.md
+        docs/CONTRIBUTING.md
+      render: text
+    validations:
+      required: false
