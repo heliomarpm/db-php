@@ -81,7 +81,6 @@ CODE,
                 rows: $data,
                 count: count($data),
                 elapsedTime: $res->elapsedTime,
-                driver: 'sqlite'
             );
         }
     ],
@@ -186,7 +185,6 @@ CODE,
                 rows: $rows,
                 count: count($rows),
                 elapsedTime: $elapsed,
-                driver: 'sqlite'
             );
         }
     ],
@@ -268,7 +266,6 @@ CODE,
                 rows: $rows,
                 count: count($rows),
                 elapsedTime: $res->elapsedTime,
-                driver: 'sqlite'
             );
         }
     ],
@@ -322,60 +319,62 @@ try {
 $memoriaUsada = sprintf('%.2f KB', (memory_get_usage() - $startMem) / 1024);
 
 // Função auxiliar para renderizar a tabela
-function renderGridTable(array $dados): string
-{
-    if (empty($dados)) {
-        return '<div class="alert alert-secondary text-center py-4 my-2"><i class="bi bi-inbox fs-3 d-block mb-2"></i>Nenhum registro retornado para esta consulta.</div>';
-    }
-
-    $colunas = array_keys(reset($dados));
-    $html = '<div class="table-responsive border rounded-3 bg-white shadow-sm">';
-    $html .= '<table class="table table-hover table-striped align-middle mb-0 font-sans" style="font-size: 0.88rem;">';
-    $html .= '<thead class="table-light border-bottom text-uppercase fw-semibold" style="font-size: 0.75rem; letter-spacing: 0.05em;"><tr>';
-
-    foreach ($colunas as $col) {
-        $html .= "<th class='py-3 px-3'>" . htmlspecialchars((string)$col) . "</th>";
-    }
-    $html .= '</tr></thead><tbody>';
-
-    foreach ($dados as $linha) {
-        $html .= '<tr>';
-        foreach ($colunas as $col) {
-            $valor = $linha[$col] ?? null;
-
-            if ($valor === null) {
-                $celula = '<span class="badge bg-secondary-subtle text-secondary font-monospace">null</span>';
-            } elseif (is_bool($valor)) {
-                $celula = $valor
-                    ? '<span class="badge bg-success-subtle text-success">Sim</span>'
-                    : '<span class="badge bg-light text-muted border">Não</span>';
-            } elseif (is_numeric($valor) && (str_contains((string)$col, 'preco') || str_contains((string)$col, 'saldo') || str_contains((string)$col, 'subtotal') || str_contains((string)$col, 'Valor'))) {
-                $celula = '<strong>R$ ' . number_format((float)$valor, 2, ',', '.') . '</strong>';
-            } elseif ($col === 'status') {
-                $cor = match ($valor) {
-                    'concluido' => 'bg-success',
-                    'pendente'  => 'bg-warning text-dark',
-                    'cancelado' => 'bg-danger',
-                    default     => 'bg-secondary'
-                };
-                $celula = "<span class='badge {$cor} text-uppercase' style='font-size: 0.7rem;'>{$valor}</span>";
-            } elseif ($col === 'vip') {
-                $celula = ((int)$valor === 1)
-                    ? '<span class="badge bg-warning text-dark fw-bold">VIP ⭐</span>'
-                    : '<span class="badge bg-light text-muted border">Comum</span>';
-            } elseif (is_array($valor)) {
-                $celula = '<code class="small">' . htmlspecialchars(json_encode($valor, JSON_UNESCAPED_UNICODE)) . '</code>';
-            } else {
-                $celula = htmlspecialchars((string)$valor);
-            }
-
-            $html .= "<td class='py-2 px-3'>{$celula}</td>";
+if (!function_exists('renderGridTable')) {
+    function renderGridTable(array $dados): string
+    {
+        if (empty($dados)) {
+            return '<div class="alert alert-secondary text-center py-4 my-2"><i class="bi bi-inbox fs-3 d-block mb-2"></i>Nenhum registro retornado para esta consulta.</div>';
         }
-        $html .= '</tr>';
-    }
 
-    $html .= '</tbody></table></div>';
-    return $html;
+        $colunas = array_keys(reset($dados));
+        $html = '<div class="table-responsive border rounded-3 bg-white shadow-sm">';
+        $html .= '<table class="table table-hover table-striped align-middle mb-0 font-sans" style="font-size: 0.88rem;">';
+        $html .= '<thead class="table-light border-bottom text-uppercase fw-semibold" style="font-size: 0.75rem; letter-spacing: 0.05em;"><tr>';
+
+        foreach ($colunas as $col) {
+            $html .= "<th class='py-3 px-3'>" . htmlspecialchars((string)$col) . "</th>";
+        }
+        $html .= '</tr></thead><tbody>';
+
+        foreach ($dados as $linha) {
+            $html .= '<tr>';
+            foreach ($colunas as $col) {
+                $valor = $linha[$col] ?? null;
+
+                if ($valor === null) {
+                    $celula = '<span class="badge bg-secondary-subtle text-secondary font-monospace">null</span>';
+                } elseif (is_bool($valor)) {
+                    $celula = $valor
+                        ? '<span class="badge bg-success-subtle text-success">Sim</span>'
+                        : '<span class="badge bg-light text-muted border">Não</span>';
+                } elseif (is_numeric($valor) && (str_contains((string)$col, 'preco') || str_contains((string)$col, 'saldo') || str_contains((string)$col, 'subtotal') || str_contains((string)$col, 'Valor'))) {
+                    $celula = '<strong>R$ ' . number_format((float)$valor, 2, ',', '.') . '</strong>';
+                } elseif ($col === 'status') {
+                    $cor = match ($valor) {
+                        'concluido' => 'bg-success',
+                        'pendente'  => 'bg-warning text-dark',
+                        'cancelado' => 'bg-danger',
+                        default     => 'bg-secondary'
+                    };
+                    $celula = "<span class='badge {$cor} text-uppercase' style='font-size: 0.7rem;'>{$valor}</span>";
+                } elseif ($col === 'vip') {
+                    $celula = ((int)$valor === 1)
+                        ? '<span class="badge bg-warning text-dark fw-bold">VIP ⭐</span>'
+                        : '<span class="badge bg-light text-muted border">Comum</span>';
+                } elseif (is_array($valor)) {
+                    $celula = '<code class="small">' . htmlspecialchars(json_encode($valor, JSON_UNESCAPED_UNICODE)) . '</code>';
+                } else {
+                    $celula = htmlspecialchars((string)$valor);
+                }
+
+                $html .= "<td class='py-2 px-3'>{$celula}</td>";
+            }
+            $html .= '</tr>';
+        }
+
+        $html .= '</tbody></table></div>';
+        return $html;
+    }
 }
 ?>
 <!DOCTYPE html>

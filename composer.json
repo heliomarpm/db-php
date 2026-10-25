@@ -38,6 +38,7 @@
     "format:fix": "pint",
     "lint": "phpstan analyse",
     "test": "phpunit --configuration phpunit.xml --colors=always",
+    "start": "php -S localhost:8000 demo/index.php",
     "check": [
       "@format:test",
       "@lint",
