@@ -21,7 +21,7 @@
 
 **DbPHP** é uma biblioteca leve, moderna e de alta performance para conexão e manipulação de bancos de dados relacionais em PHP 8.2+.
 
-Oferece suporte unificado a **PDO** e **MySQLi**, prepared statements com parâmetros nomeados (`:param`) e posicionais (`?`), telemetria nativa de execução, transações atômicas seguras e integração fluida com coleções em memória via [linq-php](https://github.com/heliomarpm/linq-php).
+Oferece suporte unificado a **PDO** e **MySQLi**, paginação nativa, prepared statements com parâmetros nomeados (`:param`) e posicionais (`?`), telemetria nativa de execução, transações atômicas seguras e integração fluida com coleções em memória via [linq-php](https://github.com/heliomarpm/linq-php).
 
 > 🚀 **[Experimente o Laboratório Interativo Online](https://db-php.vercel.app/)**  
 > Teste cenários reais de consultas, telemetria, transações e SQL livre direto no navegador!

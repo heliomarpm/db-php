@@ -1,6 +1,6 @@
 {
   "name": "heliomarpm/db-php",
-  "description": "Uma biblioteca leve, de alta performance e sem dependências externas para conexão e manipulação de banco de dados (PDO e MySQLi) em PHP",
+  "description": "Uma única API para PDO e MySQLi.Para PHP 8.2+, com suporte universal a parâmetros nomeados, paginação, telemetria nativa e zero dependências.",
   "type": "library",
   "license": "MIT",
   "authors": [
