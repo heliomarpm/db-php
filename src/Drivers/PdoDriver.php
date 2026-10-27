@@ -183,7 +183,13 @@ final class PdoDriver implements DriverInterface
         }
 
         try {
-            if ($this->config->database === ":memory:" || str_ends_with($this->config->database, ".sqlite")) {
+            $isSqlite = strtolower($this->config->driver) === "sqlite"
+                || $this->config->database === ":memory:"
+                || str_ends_with(strtolower($this->config->database), ".sqlite")
+                || str_ends_with(strtolower($this->config->database), ".sqlite3")
+                || str_ends_with(strtolower($this->config->database), ".db");
+
+            if ($isSqlite) {
                 $dsn = "sqlite:{$this->config->database}";
                 $this->pdo = new PDO($dsn, null, null, $options);
             } else {

@@ -202,4 +202,43 @@ final class PdoDriverTest extends TestCase
         $this->assertSame(2, $paginated->count());
         $this->assertSame(1, $paginated->lastPage);
     }
+
+    public function testSqliteConnectionWithDriverAndDifferentExtensions(): void
+    {
+        // 1. Conexão via driver 'sqlite' explícito com extensão .db
+        $tempDb = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'test_dbphp_' . uniqid() . '.db';
+        try {
+            $config1 = Config::fromArray([
+                'driver' => 'sqlite',
+                'database' => $tempDb,
+            ]);
+            $driver1 = new PdoDriver($config1);
+            $driver1->execute("CREATE TABLE t1 (id INT)");
+            $inserted = $driver1->execute("INSERT INTO t1 VALUES (10)");
+            $this->assertSame(1, $inserted);
+            $driver1->close();
+        } finally {
+            if (file_exists($tempDb)) {
+                unlink($tempDb);
+            }
+        }
+
+        // 2. Conexão via driver 'sqlite' sem nenhuma extensão no nome do arquivo
+        $tempNoExt = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'test_noext_' . uniqid();
+        try {
+            $config2 = Config::fromArray([
+                'driver' => 'sqlite',
+                'database' => $tempNoExt,
+            ]);
+            $driver2 = new PdoDriver($config2);
+            $driver2->execute("CREATE TABLE t2 (val TEXT)");
+            $res = $driver2->query("SELECT 42 as num");
+            $this->assertSame(42, (int)$res->row['num']);
+            $driver2->close();
+        } finally {
+            if (file_exists($tempNoExt)) {
+                unlink($tempNoExt);
+            }
+        }
+    }
 }

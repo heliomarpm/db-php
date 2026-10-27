@@ -70,19 +70,23 @@ $db = DB::mysql(
     database: "minha_base",
     username: "usuario",
     password: "senha_segura",
-    hostname: "127.0.0.1",
+    host: "127.0.0.1",
     port: 3306
 );
 
-// MySQL nativo via Driver MySQLi:
+// MySQL nativo via Driver MySQLi (aceita 'host' ou 'hostname'):
 $db = DB::connect([
     "driver"   => "mysqli",
-    "hostname" => "127.0.0.1",
+    "host"     => "127.0.0.1",
     "database" => "minha_base",
     "username" => "usuario",
     "password" => "senha_segura",
     "charset"  => "utf8mb4"
 ]);
+
+// Multi-conexão e alternância de conexão padrão:
+DB::connect(Config::forSqlite(":memory:"), name: "cache");
+DB::setDefaultConnection("cache"); // Direciona DB::query() para a conexão 'cache'
 ```
 
 ---

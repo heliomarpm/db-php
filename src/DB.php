@@ -55,6 +55,26 @@ final class DB
     }
 
     /**
+     * Define o nome da conexão padrão utilizada pelas chamadas estáticas da fachada.
+     */
+    public static function setDefaultConnection(string $name): void
+    {
+        if (trim($name) === "") {
+            throw new InvalidArgumentException("O nome da conexão padrão não pode ser vazio.");
+        }
+
+        self::$defaultConnection = $name;
+    }
+
+    /**
+     * Retorna o nome da conexão padrão configurada.
+     */
+    public static function getDefaultConnection(): string
+    {
+        return self::$defaultConnection;
+    }
+
+    /**
      * @param array<int|string, mixed> $params
      */
     public static function query(string $sql, array $params = []): QueryResult
@@ -138,5 +158,6 @@ final class DB
             $driver->close();
         }
         self::$connections = [];
+        self::$defaultConnection = "default";
     }
 }

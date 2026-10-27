@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace HeliomarPM\DbPHP\Tests\Unit;
 
 use HeliomarPM\DbPHP\DB;
+use InvalidArgumentException;
 use PHPUnit\Framework\TestCase;
 
 final class DBTest extends TestCase
@@ -42,5 +43,41 @@ final class DBTest extends TestCase
         $this->assertSame(2, $paginated->lastPage);
         $this->assertTrue($paginated->hasMorePages);
         $this->assertSame("k1", $paginated->items[0]["key"]);
+    }
+
+    public function testSetDefaultConnectionAndSwitching(): void
+    {
+        $this->assertSame("default", DB::getDefaultConnection());
+
+        // Conecta uma base secundária em memória com nome 'analytics'
+        DB::sqlite(":memory:", name: "analytics");
+        DB::connection("analytics")->execute("CREATE TABLE logs (event VARCHAR(50))");
+        DB::connection("analytics")->execute("INSERT INTO logs VALUES (?)", ["user.login"]);
+
+        // Muda a conexão padrão para 'analytics'
+        DB::setDefaultConnection("analytics");
+        $this->assertSame("analytics", DB::getDefaultConnection());
+
+        // Chamada estática DB::query() deve agora consultar a base 'analytics'
+        $result = DB::query("SELECT event FROM logs");
+        $this->assertSame(1, $result->count);
+        $this->assertSame("user.login", $result->row["event"]);
+
+        // Retorna para default
+        DB::setDefaultConnection("default");
+        $defaultResult = DB::query("SELECT COUNT(*) as total FROM settings");
+        $this->assertArrayHasKey("total", $defaultResult->row);
+
+        // Desconectar tudo deve restaurar defaultConnection para 'default'
+        DB::disconnect();
+        $this->assertSame("default", DB::getDefaultConnection());
+    }
+
+    public function testSetDefaultConnectionThrowsOnEmptyName(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage("O nome da conexão padrão não pode ser vazio.");
+
+        DB::setDefaultConnection("   ");
     }
 }

@@ -1,22 +1,18 @@
 # Backlog do Projeto: heliomarpm/db-php
 
 > **Meta:** Evolução de estabilidade, resiliência, performance e consolidação da biblioteca db-php (v1.2)\
-> **Status:** em desenvolvimento | **Progresso:** 10/17 (58%) | **WIP:** 0/2 | **Atualizado em:** 2026-10-26
+> **Status:** em desenvolvimento | **Progresso:** 12/17 (71%) | **WIP:** 0/2 | **Atualizado em:** 2026-10-27
 
 ## Concluídas recentemente
 
+- [x] **T-012 · P1 · Corrigir detecção de dialeto SQLite e parâmetros de conexão no PdoDriver e Config** (2026-10-27)
+  - Evidência: Atualizado `PdoDriver` para reconhecer `driver === 'sqlite'` e extensões `.db`/`.sqlite3`, permitindo conexão SQLite mesmo sem sufixo `.sqlite`. `Config::fromArray()` atualizado para aceitar tanto `host` quanto `hostname` (além de `user` e `pass`). Adicionados métodos `DB::setDefaultConnection()` e `DB::getDefaultConnection()` na fachada estática com reset automático em `DB::disconnect()`. Documentação do README.md alinhada com parâmetros nomeados (`host:`). Testes unitários em `ConfigTest`, `DBTest` e `PdoDriverTest` 100% verdes (23 testes, 116 asserções).
+- [x] **T-011 · P1 · Corrigir inferência e bind de booleanos e nulos no MysqliDriver** (2026-10-27)
+  - Evidência: Mapeado `is_bool($param)` explicitamente para tipo inteiro `"i"` e valor `(int)$param` em `MysqliDriver::prepareStatement`, eliminando o erro MySQL 1366 (`Incorrect integer value: '' for column`) causado por conversão implícita de `false` para string vazia em strict mode. Adicionado suporte seguro a `null` sem coerção para string. Suíte unitária `MysqliDriverTest` cobrindo filtros e inserções com `true`, `false`, `null`, `float` e `string` 100% verde (19 testes, 103 asserções).
 - [x] **T-010 · P1 · Otimizar subquery de contagem em PaginatesQueries removendo cláusula ORDER BY** (2026-10-26)
   - Evidência: Implementado método `removeTrailingOrderBy` no trait `PaginatesQueries` para podar a cláusula `ORDER BY` externa da subquery de `COUNT(*)`, mantendo compatibilidade com subqueries, literais e `GROUP BY`/`HAVING`. Testes unitários com casos simples, complexos, literais e `GROUP BY` 100% verdes (18 testes, 90 asserções). Demo testada e compatível.
 - [x] **T-009 · P0 · Desacoplar auto-rollback interno de erros de query e execute nos drivers** (2026-10-26)
   - Evidência: Removido auto-rollback destrutivo de `query()` e `execute()` em `PdoDriver` e `MysqliDriver`. O método `transaction()` permanece como autoridade do ciclo atômico de `commit()` e `rollback()`. Teste unitário `testTransactionDoesNotRollbackWhenQueryErrorHandledInCallback` em `PdoDriverTest` 100% verde (16 testes, 80 asserções).
-- [x] **T-001 · P1 · Setup do Repositório, Composer, Pint, PHPStan e Git** (2026-10-24)
-- [x] **T-002 · P1 · Configuração Imutável e Hierarquia de Exceções Sem HTML** (2026-10-24)
-- [x] **T-003 · P1 · QueryResult com Telemetria e Ponte Fluente para LinqPHP** (2026-10-24)
-- [x] **T-004 · P1 · Implementação e Testes do PdoDriver (MySQL e SQLite)** (2026-10-24)
-- [x] **T-005 · P1 · Implementação do MysqliDriver com Inferência de Tipos e Suporte a Parâmetros Nomeados** (2026-10-24)
-- [x] **T-006 · P1 · Fachada DB e Gerenciador Multi-Conexão com Testes** (2026-10-24)
-- [x] **T-007 · P1 · Documentação Completa (README), Laboratório Interativo (Demo), Suporte a Vercel e CI** (2026-10-24)
-- [x] **T-008 · P1 · Paginação Nativa em Consultas com DTO PaginatedResult** (2026-10-24)
 
 ## Em progresso
 
@@ -34,23 +30,6 @@
     - [ ] Exibir código PHP idiomático com bloco `try/catch` manual e telemetria de execução no laboratório
     - [ ] Adicionar pílula de navegação e garantir renderização consistente das tabelas de contas antes e depois da transação
     - [ ] Validar compatibilidade no navegador via subagente e manter testes unitários passando
-
-- [ ] **T-011 · P1 · Corrigir inferência e bind de booleanos e nulos no MysqliDriver**
-  - Origem: assessment A-07 | Dep.: nenhuma
-  - Ref: [MysqliDriver.php](../src/Drivers/MysqliDriver.php#L231-L236)
-  - DoD:
-    - [ ] Mapear `is_bool($param)` explicitamente para tipo `"i"` e valor `(int)$param`
-    - [ ] Assegurar bind seguro para parâmetros nulos sem conversão indevida para string vazia
-    - [ ] Testes unitários validando passagem de booleanos em filtros e inserções
-
-- [ ] **T-012 · P1 · Corrigir detecção de dialeto SQLite e parâmetros de conexão no PdoDriver e Config**
-  - Origem: assessment A-05, A-06, A-09 | Dep.: nenhuma
-  - Ref: [PdoDriver.php](../src/Drivers/PdoDriver.php#L194-L200), [Config.php](../src/Config.php#L33), [DB.php](../src/DB.php#L21), [README.md](../README.md#L73)
-  - DoD:
-    - [ ] No `PdoDriver`, validar `$this->config->driver === 'sqlite'` para montar DSN SQLite independente da extensão do arquivo
-    - [ ] Em `Config::fromArray()`, aceitar tanto `hostname` quanto `host` para compatibilidade com documentação
-    - [ ] Adicionar método `DB::setDefaultConnection(string $name): void`
-    - [ ] Corrigir documentação do README.md alinhando parâmetros nomeados com a API
 
 - [ ] **T-013 · P0 · Implementar suíte de testes unitários para MysqliDriver**
   - Origem: assessment A-02 | Dep.: T-009, T-011
