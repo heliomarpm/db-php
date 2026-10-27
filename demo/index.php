@@ -4,6 +4,10 @@ declare(strict_types=1);
 require_once __DIR__ . '/../vendor/autoload.php';
 require_once __DIR__ . '/seed.php';
 
+require_once __DIR__ . '/Exceptions/SecurityException.php';
+require_once __DIR__ . '/Support/SqlSandboxValidator.php';
+
+use Demo\Support\SqlSandboxValidator;
 
 // Inicializa a base de demonstração isolada para esta requisição
 $db = createDemoDatabase();
@@ -486,8 +490,8 @@ CODE,
         'badge'  => 'bg-dark',
         'desc'   => 'Digite qualquer instrução SELECT no campo abaixo para consultar a base SQLite em memória ao vivo.',
         'codigo' => <<<'CODE'
-// Execute qualquer consulta SQL contra as tabelas do demo:
-// Tabelas: clientes, categorias, produtos, pedidos, itens_pedido, contas
+// A sandbox valida e bloqueia comandos perigosos, stacked queries e RCE:
+SqlSandboxValidator::assertSafe($sqlCustomizado);
 $result = DB::query($sqlCustomizado);
 CODE,
         'run' => function (HeliomarPM\DbPHP\Contracts\DriverInterface $db) {
@@ -495,6 +499,8 @@ CODE,
             if (empty($customSql)) {
                 $customSql = "SELECT * FROM produtos WHERE estoque < 20";
             }
+
+            SqlSandboxValidator::assertSafe($customSql);
 
             return $db->query($customSql);
         },
@@ -863,12 +869,20 @@ if (!function_exists('renderGridTable')) {
             <!-- EDITOR DE SQL LIVRE -->
             <div class="bg-card p-3 rounded-3 mb-4">
                 <form id="sqlPlaygroundForm" method="POST" action="?cenario=playground">
-                    <label class="form-label small fw-semibold text-secondary text-uppercase font-mono">
-                        <i class="bi bi-terminal me-1"></i> Editor SQL Livre (SQLite)
-                    </label>
-                    <textarea name="custom_sql" rows="3" class="form-control font-mono bg-dark text-white border-secondary mb-2" style="font-size: 0.9rem;" placeholder="Ex: SELECT * FROM produtos WHERE preco > 100"><?= htmlspecialchars($_POST['custom_sql'] ?? $_GET['sql'] ?? "SELECT * FROM produtos WHERE estoque < 20") ?></textarea>
-                    <div class="d-flex justify-content-between align-items-center">
-                        <span class="text-secondary small">Tabelas disponíveis: <code>clientes</code>, <code>categorias</code>, <code>produtos</code>, <code>pedidos</code>, <code>itens_pedido</code>, <code>contas</code></span>
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <label class="form-label small fw-semibold text-secondary text-uppercase font-mono mb-0">
+                            <i class="bi bi-terminal me-1"></i> Editor SQL Livre (SQLite)
+                        </label>
+                        <span class="badge bg-success-subtle text-success border border-success border-opacity-25 font-mono" style="font-size: 0.7rem;">
+                            <i class="bi bi-shield-check me-1"></i> Sandbox Blindada
+                        </span>
+                    </div>
+                    <textarea name="custom_sql" rows="3" maxlength="2048" class="form-control font-mono bg-dark text-white border-secondary mb-2" style="font-size: 0.9rem;" placeholder="Ex: SELECT * FROM produtos WHERE preco > 100"><?= htmlspecialchars($_POST['custom_sql'] ?? $_GET['sql'] ?? "SELECT * FROM produtos WHERE estoque < 20") ?></textarea>
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                        <span class="text-secondary small">
+                            Tabelas: <code>clientes</code>, <code>categorias</code>, <code>produtos</code>, <code>pedidos</code>, <code>contas</code>.
+                            <span class="text-secondary opacity-75 d-block d-md-inline ms-md-1">(Apenas consultas <code>SELECT</code> e <code>EXPLAIN</code>)</span>
+                        </span>
                         <button type="submit" class="btn btn-brand-gradient btn-sm px-3">
                             <i class="bi bi-play-circle-fill me-1"></i> Rodar Consulta
                         </button>

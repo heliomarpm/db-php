@@ -30,7 +30,8 @@
   },
   "autoload-dev": {
     "psr-4": {
-      "HeliomarPM\\DbPHP\\Tests\\": "tests/"
+      "HeliomarPM\\DbPHP\\Tests\\": "tests/",
+      "Demo\\": "demo/"
     }
   },
   "scripts": {

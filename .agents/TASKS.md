@@ -1,7 +1,7 @@
 # Backlog do Projeto: heliomarpm/db-php
 
 > **Meta:** Evolução de estabilidade, resiliência, performance e consolidação da biblioteca db-php (v1.2)\
-> **Status:** em desenvolvimento | **Progresso:** 16/19 (84%) | **WIP:** 0/2 | **Atualizado em:** 2026-10-27
+> **Status:** em desenvolvimento | **Progresso:** 17/19 (89%) | **WIP:** 0/2 | **Atualizado em:** 2026-10-27
 
 ## Em progresso
 
@@ -11,15 +11,7 @@
 
 ### Alta Prioridade (Horizonte 1: Quick Wins & Higiene Imediata)
 
-- [ ] **T-019 · P1 · Blindar sandbox do playground web na demo contra RCE e comandos perigosos**
-  - Origem: manual | Dep.: nenhuma
-  - Ref: [demo/index.php](../demo/index.php#L483-L501)
-  - DoD:
-    - [ ] Restringir execução no playground estritamente a comandos de leitura (`SELECT` ou `EXPLAIN`)
-    - [ ] Bloquear comandos perigosos do SQLite (`ATTACH`, `DETACH`, `PRAGMA`, `LOAD_EXTENSION`, `VACUUM`) e operações destrutivas (`DROP`, `DELETE`, `UPDATE`, `INSERT`, `ALTER`, `CREATE`)
-    - [ ] Bloquear execução de múltiplas consultas concatenadas por ponto e vírgula (stacked queries)
-    - [ ] Tratar violações de segurança com mensagem explicativa amigável e badge de alerta na interface da demo
-    - [ ] Adicionar testes de validação do filtro/sanitizador contra tentativas de bypass (comentários, variações de maiúsculas/minúsculas e quebras de linha)
+*(Nenhuma tarefa de alta prioridade restante)*
 
 ### Média Prioridade (Horizonte 2: Consolidação & Refatoração Tática)
 
@@ -55,6 +47,8 @@
 
 ## Concluídas recentemente
 
+- [x] **T-019 · P1 · Blindar sandbox do playground web na demo contra RCE e comandos perigosos** (2026-10-27)
+  - Evidência: Criadas classe `SqlSandboxValidator` e exceção `SecurityException` restringindo o SQL do playground estritamente a comandos de leitura (`SELECT` ou `EXPLAIN`). Bloqueadas palavras-chave e comandos perigosos do SQLite (`ATTACH`, `DETACH`, `PRAGMA`, `LOAD_EXTENSION`, `WRITEFILE`, `READFILE`, `VACUUM`) e operações destrutivas (`DROP`, `DELETE`, `UPDATE`, `INSERT`, `ALTER`, `CREATE`). Bloqueadas stacked queries com `;` fora de literais. Interface da demo atualizada com badge `Sandbox Blindada` e feedback de segurança. Suíte completa com 8 testes e 54 asserções em `SqlSandboxValidatorTest` 100% verde (46 testes e 247 asserções totais da biblioteca). Validado no navegador via subagente com gravação e capturas de tela.
 - [x] **T-015 · P2 · Parser léxico unificado para parâmetros nomeados no AbstractDriver (Mysqli e PDO)** (2026-10-27)
   - Evidência: Promovido parser léxico seguro de parâmetros nomeados para a classe base `AbstractDriver`, tornando a resolução de parâmetros unificada e 100% paritária entre `MysqliDriver` e `PdoDriver`. Identifica e preserva literais em aspas simples (`\'`, `''`), aspas duplas (`\"`, `""`), identificadores entre crases (`` ` ``), comentários de linha (`--`, `#`), comentários em bloco (`/* ... */`) e operadores especiais de banco (`::`, `:=`). Habilita suporte universal a parâmetros repetidos (mesma chave usada múltiplas vezes no SQL) com binds ordenados em ambos os drivers e mantém `ATTR_EMULATE_PREPARES => false` (prepares nativos no servidor) no PDO sem risco de erro `HY093` no MySQL. Suíte de 38 testes e 193 asserções 100% verdes, PHPStan Nível 8 com 0 erros e Pint aprovado.
 - [x] **T-014 · P2 · Extrair classe base abstrata AbstractDriver consolidando métodos comuns** (2026-10-27)
