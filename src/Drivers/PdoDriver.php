@@ -35,8 +35,10 @@ final class PdoDriver extends AbstractDriver
         $this->assertConnected();
         $startTime = microtime(true);
 
+        [$resolvedSql, $resolvedParams] = $this->resolveNamedParameters($sql, $params);
+
         try {
-            $stmt = $this->prepareStatement($sql, $params);
+            $stmt = $this->prepareStatement($resolvedSql, $resolvedParams);
             $stmt->execute();
 
             /** @var array<int, array<string, mixed>> $rows */
@@ -59,8 +61,10 @@ final class PdoDriver extends AbstractDriver
     {
         $this->assertConnected();
 
+        [$resolvedSql, $resolvedParams] = $this->resolveNamedParameters($sql, $params);
+
         try {
-            $stmt = $this->prepareStatement($sql, $params);
+            $stmt = $this->prepareStatement($resolvedSql, $resolvedParams);
             $stmt->execute();
 
             $this->affectedRows = $stmt->rowCount();

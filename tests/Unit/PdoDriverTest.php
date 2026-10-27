@@ -241,4 +241,37 @@ final class PdoDriverTest extends TestCase
             }
         }
     }
+
+    public function testNamedParametersWithRepeatedKeysAndOutOfOrderInPdoDriver(): void
+    {
+        $this->driver->execute("CREATE TABLE users_named_test (id INTEGER PRIMARY KEY, name TEXT, email TEXT, active INT)");
+        $this->driver->execute("INSERT INTO users_named_test (name, email, active) VALUES (?, ?, ?)", ["Carlos Silva", "carlos@test.com", 1]);
+        $this->driver->execute("INSERT INTO users_named_test (name, email, active) VALUES (?, ?, ?)", ["Mariana Costa", "mariana_silva@test.com", 1]);
+        $this->driver->execute("INSERT INTO users_named_test (name, email, active) VALUES (?, ?, ?)", ["Carlos Eduardo", "eduardo@test.com", 0]);
+
+        // 1. Consulta com parâmetro repetido :termo, parâmetros fora de ordem e literal com dois-pontos
+        $result = $this->driver->query(
+            "SELECT id, name, email, 'Status: :termo' AS info
+             FROM users_named_test
+             WHERE (name LIKE :termo OR email LIKE :termo) AND active = :active
+             ORDER BY id ASC",
+            [
+                "active" => 1,
+                "termo" => "%silva%",
+            ]
+        );
+
+        $this->assertSame(2, $result->count);
+        $this->assertSame("Carlos Silva", $result->rows[0]["name"]);
+        $this->assertSame("Mariana Costa", $result->rows[1]["name"]);
+        $this->assertSame("Status: :termo", $result->rows[0]["info"]);
+
+        // 2. Parâmetros com prefixo dois-pontos
+        $result2 = $this->driver->query(
+            "SELECT * FROM users_named_test WHERE id = :id AND active = :active",
+            [":active" => 1, ":id" => 1]
+        );
+        $this->assertSame(1, $result2->count);
+        $this->assertSame("Carlos Silva", $result2->row["name"]);
+    }
 }
