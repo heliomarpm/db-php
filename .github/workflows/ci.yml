@@ -17,6 +17,23 @@ jobs:
       matrix:
         php: ['8.2', '8.3', '8.4']
 
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: dbphp_test
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+
+    env:
+      DB_MYSQL_HOST: 127.0.0.1
+      DB_MYSQL_PORT: 3306
+      DB_MYSQL_USER: root
+      DB_MYSQL_PASS: root
+      DB_MYSQL_DATABASE: dbphp_test
+
     steps:
       - name: 📦 Checkout do código
         uses: actions/checkout@v7

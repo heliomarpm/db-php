@@ -1,10 +1,12 @@
 # Backlog do Projeto: heliomarpm/db-php
 
 > **Meta:** Evolução de estabilidade, resiliência, performance e consolidação da biblioteca db-php (v1.2)\
-> **Status:** em desenvolvimento | **Progresso:** 13/17 (76%) | **WIP:** 0/2 | **Atualizado em:** 2026-10-27
+> **Status:** em desenvolvimento | **Progresso:** 14/17 (82%) | **WIP:** 0/2 | **Atualizado em:** 2026-10-27
 
 ## Concluídas recentemente
 
+- [x] **T-013 · P0 · Implementar suíte de testes unitários para MysqliDriver** (2026-10-27)
+  - Evidência: Criada suíte completa em `tests/Unit/MysqliDriverTest.php` cobrindo conexões válidas e com erro (`ConnectionException`), `execute()`, `lastInsertId()`, `countAffected()`, `query()`, binds posicionais e nomeados, transações automáticas e manuais (`beginTransaction`, `commit`, `rollback`, `inTransaction`), persistência da transação após tratamento de exceção local, `escape()` e paginação nativa. Configurado service container do MySQL no pipeline `.github/workflows/ci.yml`. Suíte com 11 testes e 55 asserções 100% verdes (35 testes no total da biblioteca).
 - [x] **T-017 · P2 · Incluir exemplo interativo de controle manual de transações na demo (`beginTransaction`, `commit`, `rollback`)** (2026-10-27)
   - Evidência: Adicionado novo cenário interativo `transacao_manual` na demo com seletor de modo `commit` e `rollback`. Implementados métodos estáticos delegadores `DB::beginTransaction()`, `DB::commit()`, `DB::rollback()` e `DB::inTransaction()` na fachada. Tabela de contas enriquecida com saldos anteriores, variações monetárias calculadas e badges de ciclo transacional. Testes unitários em `DBTest` cobrindo fluxo manual de commit e rollback 100% verdes (25 testes, 125 asserções). Validado no navegador via subagente com gravação e screenshot.
 - [x] **T-012 · P1 · Corrigir detecção de dialeto SQLite e parâmetros de conexão no PdoDriver e Config** (2026-10-27)
@@ -24,13 +26,7 @@
 
 ### Alta Prioridade (Horizonte 1: Quick Wins & Higiene Imediata)
 
-- [ ] **T-013 · P0 · Implementar suíte de testes unitários para MysqliDriver**
-  - Origem: assessment A-02 | Dep.: T-009, T-011
-  - Ref: [MysqliDriver.php](../src/Drivers/MysqliDriver.php), [tests/Unit/PdoDriverTest.php](../tests/Unit/PdoDriverTest.php)
-  - DoD:
-    - [ ] Criar `tests/Unit/MysqliDriverTest.php` cobrindo conexões, queries, execute, transações e binds
-    - [ ] Testar cenários de sucesso e falhas com asserção de `QueryException`
-    - [ ] Suíte validada no CI do GitHub Actions
+*(Nenhuma tarefa de alta prioridade restante)*
 
 ### Média Prioridade (Horizonte 2: Consolidação & Refatoração Tática)
 
