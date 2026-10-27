@@ -25,13 +25,21 @@ if (isset($_GET['api']) && $_GET['api'] === 'paginate') {
     $params = ["min_preco" => $minPreco];
 
     if ($search !== "") {
-        $sql .= " AND (p.nome_produto LIKE :search OR c.nome_categoria LIKE :search)";
-        $params["search"] = "%{$search}%";
+        $sql .= " AND (p.nome_produto LIKE :search_nome OR c.nome_categoria LIKE :search_cat)";
+        $params["search_nome"] = "%{$search}%";
+        $params["search_cat"] = "%{$search}%";
     }
 
-    $sql .= " ORDER BY p.id_produto ASC";
+    $sql .= " ORDER BY p.preco DESC";
 
     $paginado = $db->paginate($sql, $params, $page, $perPage);
+
+    // Se o filtro reduziu o total e a página solicitada ficou além da última página disponível,
+    // recalcula automaticamente na última página válida para não perder os registros da visualização
+    if ($page > $paginado->lastPage && $paginado->total > 0) {
+        $paginado = $db->paginate($sql, $params, $paginado->lastPage, $perPage);
+    }
+
     echo json_encode($paginado, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
     exit;
 }
@@ -163,20 +171,20 @@ $paginado = DB::paginate(
     sql: "SELECT p.id_produto, p.nome_produto, c.nome_categoria, p.preco, p.estoque
           FROM produtos p
           INNER JOIN categorias c ON c.id_categoria = p.id_categoria
-          WHERE p.preco > :preco
-          ORDER BY p.id_produto ASC",
+          WHERE p.preco >= :preco
+          ORDER BY p.preco DESC",
     params: ["preco" => 50.00],
     page: $pagina,
     perPage: $porPagina
 );
 
 // Metadados ricos disponíveis:
-$itens       = $paginado->items;           // 4 itens desta página
-$total       = $paginado->total;           // 9 produtos no total
-$paginaAtual = $paginado->currentPage;     // 1, 2 ou 3
-$ultimaPagina= $paginado->lastPage;        // 3
+$itens       = $paginado->items;           // Itens da página atual
+$total       = $paginado->total;           // Total de registros correspondentes ao filtro
+$paginaAtual = $paginado->currentPage;     // Ex: 1, 2 ou 3
+$ultimaPagina= $paginado->lastPage;        // Ex: 3
 $faixa       = "De {$paginado->from} até {$paginado->to}";
-$temMais     = $paginado->hasMorePages;    // true se houver próxima
+$temMais     = $paginado->hasMorePages;    // true se houver próxima página
 CODE,
         'run' => function (HeliomarPM\DbPHP\Contracts\DriverInterface $db) {
             $pagina = (int)($_GET['page'] ?? 1);
@@ -184,9 +192,9 @@ CODE,
                 "SELECT p.id_produto, p.nome_produto, c.nome_categoria, p.preco, p.estoque
                  FROM produtos p
                  INNER JOIN categorias c ON c.id_categoria = p.id_categoria
-                 WHERE p.preco > :preco
-                 ORDER BY p.id_produto ASC",
-                ["preco" => 50.00],
+                 WHERE p.preco >= :preco
+                 ORDER BY p.preco DESC",
+                ["preco" => 0.00],
                 page: $pagina,
                 perPage: 4
             );
@@ -561,6 +569,7 @@ if (!function_exists('renderGridTable')) {
             border: 1px solid #30363d;
             border-radius: 0.75rem;
             padding: 1rem 1.25rem;
+            height: 100%;
         }
         .nav-tabs .nav-link {
             color: #8b949e;
@@ -646,7 +655,7 @@ if (!function_exists('renderGridTable')) {
                 <div class="col-6 col-md-3">
                     <div class="hud-card">
                         <div class="text-secondary small fw-semibold text-uppercase" style="font-size: 0.7rem;">Tempo de Execução</div>
-                        <div class="h3 fw-bold text-cyan font-mono mb-0 mt-1">
+                        <div class="h3 fw-bold text-cyan font-mono mb-0 mt-1" id="hud-tempo-execucao">
                             <?= $tempoMs ?> <span class="fs-6 fw-normal text-secondary">ms</span>
                         </div>
                         <div class="text-secondary small font-mono mt-1" style="font-size: 0.72rem;">
@@ -658,7 +667,7 @@ if (!function_exists('renderGridTable')) {
                 <div class="col-6 col-md-3">
                     <div class="hud-card">
                         <div class="text-secondary small fw-semibold text-uppercase" style="font-size: 0.7rem;">Registros Retornados</div>
-                        <div class="h3 fw-bold text-orange font-mono mb-0 mt-1">
+                        <div class="h3 fw-bold text-orange font-mono mb-0 mt-1" id="hud-total-registros">
                             <?= $totalLinhas ?>
                         </div>
                         <div class="text-secondary small mt-1" style="font-size: 0.72rem;">
@@ -738,7 +747,7 @@ if (!function_exists('renderGridTable')) {
             <ul class="nav nav-tabs border-secondary border-opacity-25 mb-3" id="demoTabs" role="tablist">
                 <li class="nav-item" role="presentation">
                     <button class="nav-link active" id="grid-tab" data-bs-toggle="tab" data-bs-target="#grid-pane" type="button" role="tab">
-                        <i class="bi bi-table me-1"></i> Tabela Interativa (<?= $totalLinhas ?>)
+                        <i class="bi bi-table me-1"></i> Tabela Interativa (<span id="tab-total-registros"><?= $totalLinhas ?></span>)
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
@@ -787,7 +796,7 @@ if (!function_exists('renderGridTable')) {
                                         <label class="form-label small text-secondary text-uppercase font-mono mb-1">
                                             <i class="bi bi-search me-1"></i> Filtrar Catálogo
                                         </label>
-                                        <input type="text" v-model="search" @input="debouncedFetch" class="form-control form-control-sm bg-dark text-white border-secondary" placeholder="Buscar por produto ou categoria...">
+                                        <input type="text" v-model="search" class="form-control form-control-sm bg-dark text-white border-secondary" placeholder="Buscar por produto ou categoria...">
                                     </div>
 
                                     <!-- Slider Preço Mínimo -->
@@ -798,7 +807,14 @@ if (!function_exists('renderGridTable')) {
                                             </label>
                                             <span class="badge bg-primary font-mono">R$ {{ minPreco.toFixed(2) }}</span>
                                         </div>
-                                        <input type="range" v-model.number="minPreco" @input="debouncedFetch" min="0" max="3500" step="50" class="form-range">
+                                        <input type="range" v-model.number="minPreco" min="0" max="1000" step="25" class="form-range">
+                                        <div class="d-flex gap-1 mt-1 flex-wrap">
+                                            <button type="button" @click="minPreco = 0" class="btn btn-outline-secondary py-0 px-2 font-mono" style="font-size: 0.68rem;">Todos (R$ 0)</button>
+                                            <button type="button" @click="minPreco = 50" class="btn btn-outline-secondary py-0 px-2 font-mono" style="font-size: 0.68rem;">≥ R$ 50</button>
+                                            <button type="button" @click="minPreco = 100" class="btn btn-outline-secondary py-0 px-2 font-mono" style="font-size: 0.68rem;">≥ R$ 100</button>
+                                            <button type="button" @click="minPreco = 150" class="btn btn-outline-secondary py-0 px-2 font-mono" style="font-size: 0.68rem;">≥ R$ 150</button>
+                                            <button type="button" @click="minPreco = 300" class="btn btn-outline-secondary py-0 px-2 font-mono" style="font-size: 0.68rem;">≥ R$ 300</button>
+                                        </div>
                                     </div>
 
                                     <!-- Seletor de Itens por Página -->
@@ -806,7 +822,7 @@ if (!function_exists('renderGridTable')) {
                                         <label class="form-label small text-secondary text-uppercase font-mono mb-1">
                                             <i class="bi bi-list-ol me-1"></i> Itens por Página
                                         </label>
-                                        <select v-model.number="perPage" @change="fetchPage(1)" class="form-select form-select-sm bg-dark text-white border-secondary">
+                                        <select v-model.number="perPage" class="form-select form-select-sm bg-dark text-white border-secondary">
                                             <option :value="2">2 por página</option>
                                             <option :value="4">4 por página</option>
                                             <option :value="6">6 por página</option>
@@ -971,7 +987,7 @@ if (!function_exists('renderGridTable')) {
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-sql.min.js"></script>
     <script>
     if (typeof Vue !== 'undefined' && document.getElementById('vue-pagination-app')) {
-        const { createApp, ref, onMounted } = Vue;
+        const { createApp, ref, watch, onMounted } = Vue;
 
         createApp({
             setup() {
@@ -991,9 +1007,15 @@ if (!function_exists('renderGridTable')) {
                 const perPage = ref(4);
                 const loading = ref(false);
                 const responseTimeMs = ref('0.00');
+                let activeController = null;
                 let debounceTimer = null;
 
                 const fetchPage = async (page = 1) => {
+                    if (activeController) {
+                        activeController.abort();
+                    }
+                    activeController = new AbortController();
+
                     loading.value = true;
                     const t0 = performance.now();
                     try {
@@ -1005,12 +1027,23 @@ if (!function_exists('renderGridTable')) {
                             q: search.value
                         });
 
-                        const res = await fetch('?' + params.toString());
+                        const res = await fetch('?' + params.toString(), {
+                            signal: activeController.signal
+                        });
                         const json = await res.json();
 
                         items.value = json.data || [];
                         pagination.value = json.pagination || {};
                         responseTimeMs.value = (performance.now() - t0).toFixed(2);
+
+                        // Sincroniza dinamicamente o HUD de métricas e cabeçalho da Tab com os dados dinâmicos
+                        const totalRegistros = pagination.value.total ?? items.value.length;
+                        const hudTotal = document.getElementById('hud-total-registros');
+                        if (hudTotal) hudTotal.innerText = totalRegistros;
+                        const tabTotal = document.getElementById('tab-total-registros');
+                        if (tabTotal) tabTotal.innerText = totalRegistros;
+                        const hudTempo = document.getElementById('hud-tempo-execucao');
+                        if (hudTempo) hudTempo.innerHTML = `${responseTimeMs.value} <span class="fs-6 fw-normal text-secondary">ms</span>`;
 
                         // Atualiza a aba JSON Bruto com o resultado dinâmico
                         const jsonBlock = document.getElementById('jsonBlock');
@@ -1021,18 +1054,26 @@ if (!function_exists('renderGridTable')) {
                             }
                         }
                     } catch (err) {
-                        console.error('Erro na requisição paginada Vue:', err);
+                        if (err.name !== 'AbortError') {
+                            console.error('Erro na requisição paginada Vue:', err);
+                        }
                     } finally {
                         loading.value = false;
                     }
                 };
 
-                const debouncedFetch = () => {
+                // Observa alterações de quantidade por página: reinicia na página 1 imediatamente
+                watch(perPage, () => {
+                    fetchPage(1);
+                });
+
+                // Observa preço mínimo e busca com debounce
+                watch([minPreco, search], () => {
                     clearTimeout(debounceTimer);
                     debounceTimer = setTimeout(() => {
                         fetchPage(1);
-                    }, 250);
-                };
+                    }, 180);
+                });
 
                 onMounted(() => {
                     fetchPage(1);
@@ -1046,8 +1087,7 @@ if (!function_exists('renderGridTable')) {
                     perPage,
                     loading,
                     responseTimeMs,
-                    fetchPage,
-                    debouncedFetch
+                    fetchPage
                 };
             }
         }).mount('#vue-pagination-app');

@@ -1,7 +1,7 @@
 # Backlog do Projeto: heliomarpm/db-php
 
 > **Meta:** Evolução de estabilidade, resiliência, performance e consolidação da biblioteca db-php (v1.2)\
-> **Status:** em desenvolvimento | **Progresso:** 10/16 (62%) | **WIP:** 0/2 | **Atualizado em:** 2026-10-26
+> **Status:** em desenvolvimento | **Progresso:** 10/17 (58%) | **WIP:** 0/2 | **Atualizado em:** 2026-10-26
 
 ## Concluídas recentemente
 
@@ -25,6 +25,15 @@
 ## Backlog
 
 ### Alta Prioridade (Horizonte 1: Quick Wins & Higiene Imediata)
+
+- [ ] **T-017 · P2 · Incluir exemplo interativo de controle manual de transações na demo (`beginTransaction`, `commit`, `rollback`)**
+  - Origem: manual | Dep.: nenhuma
+  - Ref: [demo/index.php](../demo/index.php), [DriverInterface.php](../src/Contracts/DriverInterface.php#L60-L75), [PdoDriver.php](../src/Drivers/PdoDriver.php#L83-L105)
+  - DoD:
+    - [ ] Adicionar novo cenário na demo (ex: `transacao_manual`) demonstrando o fluxo explícito com `beginTransaction()`, `execute()`, `commit()` e tratamento de exceção com `rollback()`
+    - [ ] Exibir código PHP idiomático com bloco `try/catch` manual e telemetria de execução no laboratório
+    - [ ] Adicionar pílula de navegação e garantir renderização consistente das tabelas de contas antes e depois da transação
+    - [ ] Validar compatibilidade no navegador via subagente e manter testes unitários passando
 
 - [ ] **T-011 · P1 · Corrigir inferência e bind de booleanos e nulos no MysqliDriver**
   - Origem: assessment A-07 | Dep.: nenhuma
