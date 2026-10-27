@@ -1,10 +1,12 @@
 # Backlog do Projeto: heliomarpm/db-php
 
 > **Meta:** Evolução de estabilidade, resiliência, performance e consolidação da biblioteca db-php (v1.2)\
-> **Status:** em desenvolvimento | **Progresso:** 9/16 (56%) | **WIP:** 0/2 | **Atualizado em:** 2026-10-26
+> **Status:** em desenvolvimento | **Progresso:** 10/16 (62%) | **WIP:** 0/2 | **Atualizado em:** 2026-10-26
 
 ## Concluídas recentemente
 
+- [x] **T-010 · P1 · Otimizar subquery de contagem em PaginatesQueries removendo cláusula ORDER BY** (2026-10-26)
+  - Evidência: Implementado método `removeTrailingOrderBy` no trait `PaginatesQueries` para podar a cláusula `ORDER BY` externa da subquery de `COUNT(*)`, mantendo compatibilidade com subqueries, literais e `GROUP BY`/`HAVING`. Testes unitários com casos simples, complexos, literais e `GROUP BY` 100% verdes (18 testes, 90 asserções). Demo testada e compatível.
 - [x] **T-009 · P0 · Desacoplar auto-rollback interno de erros de query e execute nos drivers** (2026-10-26)
   - Evidência: Removido auto-rollback destrutivo de `query()` e `execute()` em `PdoDriver` e `MysqliDriver`. O método `transaction()` permanece como autoridade do ciclo atômico de `commit()` e `rollback()`. Teste unitário `testTransactionDoesNotRollbackWhenQueryErrorHandledInCallback` em `PdoDriverTest` 100% verde (16 testes, 80 asserções).
 - [x] **T-001 · P1 · Setup do Repositório, Composer, Pint, PHPStan e Git** (2026-10-24)
@@ -23,14 +25,6 @@
 ## Backlog
 
 ### Alta Prioridade (Horizonte 1: Quick Wins & Higiene Imediata)
-
-- [ ] **T-010 · P1 · Otimizar subquery de contagem em PaginatesQueries removendo cláusula ORDER BY**
-  - Origem: assessment A-03 | Dep.: nenhuma
-  - Ref: [PaginatesQueries.php](../src/Concerns/PaginatesQueries.php#L31-L35)
-  - DoD:
-    - [ ] Remover a cláusula `ORDER BY` da consulta antes de envolvê-la em `SELECT COUNT(*) AS total_count FROM (...)`
-    - [ ] Preservar compatibilidade com consultas contendo `GROUP BY` e `HAVING`
-    - [ ] Teste unitário garantindo que o SQL de contagem gerado exclua o `ORDER BY` da consulta paginada
 
 - [ ] **T-011 · P1 · Corrigir inferência e bind de booleanos e nulos no MysqliDriver**
   - Origem: assessment A-07 | Dep.: nenhuma

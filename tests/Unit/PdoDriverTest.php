@@ -144,4 +144,62 @@ final class PdoDriverTest extends TestCase
         $this->assertFalse($page2->hasMorePages);
         $this->assertTrue($page2->hasPreviousPages);
     }
+
+    public function testRemoveTrailingOrderBy(): void
+    {
+        // 1. Caso simples
+        $sql1 = "SELECT * FROM users ORDER BY id DESC";
+        $this->assertSame("SELECT * FROM users", $this->driver->removeTrailingOrderBy($sql1));
+
+        // 2. Múltiplas colunas com direções variadas
+        $sql2 = "SELECT id, name FROM users WHERE active = 1 ORDER BY name ASC, id DESC";
+        $this->assertSame("SELECT id, name FROM users WHERE active = 1", $this->driver->removeTrailingOrderBy($sql2));
+
+        // 3. Múltiplas linhas e espaços variados
+        $sql3 = "SELECT * FROM users\n    ORDER   BY\n    id ASC";
+        $this->assertSame("SELECT * FROM users", $this->driver->removeTrailingOrderBy($sql3));
+
+        // 4. Preserva ORDER BY interno a subquery
+        $sql4 = "SELECT id, (SELECT name FROM roles ORDER BY priority DESC) FROM users ORDER BY id ASC";
+        $this->assertSame(
+            "SELECT id, (SELECT name FROM roles ORDER BY priority DESC) FROM users",
+            $this->driver->removeTrailingOrderBy($sql4)
+        );
+
+        // 5. Preserva ORDER BY dentro de string literal
+        $sql5 = "SELECT * FROM logs WHERE message = 'Favor ORDER BY data' ORDER BY id DESC";
+        $this->assertSame(
+            "SELECT * FROM logs WHERE message = 'Favor ORDER BY data'",
+            $this->driver->removeTrailingOrderBy($sql5)
+        );
+
+        // 6. Consulta sem ORDER BY permanece inalterada
+        $sql6 = "SELECT * FROM users WHERE active = 1";
+        $this->assertSame($sql6, $this->driver->removeTrailingOrderBy($sql6));
+
+        // 7. Consulta com GROUP BY e HAVING preserva ambos e remove apenas o ORDER BY
+        $sql7 = "SELECT active, COUNT(*) FROM users GROUP BY active HAVING COUNT(*) > 1 ORDER BY active DESC";
+        $this->assertSame(
+            "SELECT active, COUNT(*) FROM users GROUP BY active HAVING COUNT(*) > 1",
+            $this->driver->removeTrailingOrderBy($sql7)
+        );
+    }
+
+    public function testPaginateWithGroupByAndOrderBy(): void
+    {
+        $this->driver->execute("INSERT INTO users (name, email, active) VALUES (?, ?, ?)", ["U1", "u1@test.com", 1]);
+        $this->driver->execute("INSERT INTO users (name, email, active) VALUES (?, ?, ?)", ["U2", "u2@test.com", 1]);
+        $this->driver->execute("INSERT INTO users (name, email, active) VALUES (?, ?, ?)", ["U3", "u3@test.com", 0]);
+
+        $paginated = $this->driver->paginate(
+            "SELECT active, COUNT(*) AS total_por_status FROM users GROUP BY active ORDER BY active DESC",
+            [],
+            page: 1,
+            perPage: 10
+        );
+
+        $this->assertSame(2, $paginated->total);
+        $this->assertSame(2, $paginated->count());
+        $this->assertSame(1, $paginated->lastPage);
+    }
 }

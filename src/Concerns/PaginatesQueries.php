@@ -29,7 +29,8 @@ trait PaginatesQueries
         $startTime = microtime(true);
 
         $cleanSql = rtrim(trim($sql), ";");
-        $countSql = "SELECT COUNT(*) AS total_count FROM ({$cleanSql}) AS count_subquery";
+        $countInnerSql = $this->removeTrailingOrderBy($cleanSql);
+        $countSql = "SELECT COUNT(*) AS total_count FROM ({$countInnerSql}) AS count_subquery";
 
         $countResult = $this->query($countSql, $params);
         $total = (int)($countResult->row["total_count"] ?? 0);
@@ -64,5 +65,63 @@ trait PaginatesQueries
             currentPage: $validPage,
             elapsedTime: $elapsedTime
         );
+    }
+
+    /**
+     * Remove a cláusula ORDER BY externa (nível 0) de uma instrução SQL.
+     * Preserva ORDER BY presentes dentro de subqueries, window functions ou literais.
+     */
+    public function removeTrailingOrderBy(string $sql): string
+    {
+        $len = strlen($sql);
+        $depth = 0;
+        $inQuote = false;
+        $quoteChar = "";
+        $lastOrderByPos = null;
+
+        for ($i = 0; $i < $len; $i++) {
+            $char = $sql[$i];
+
+            if ($inQuote) {
+                if ($char === $quoteChar) {
+                    if ($i + 1 < $len && $sql[$i + 1] === $quoteChar) {
+                        $i++;
+                    } else {
+                        $inQuote = false;
+                    }
+                } elseif ($char === "\\") {
+                    $i++;
+                }
+                continue;
+            }
+
+            if ($char === "'" || $char === '"' || $char === "`") {
+                $inQuote = true;
+                $quoteChar = $char;
+                continue;
+            }
+
+            if ($char === "(") {
+                $depth++;
+                continue;
+            }
+
+            if ($char === ")") {
+                $depth = max(0, $depth - 1);
+                continue;
+            }
+
+            if ($depth === 0 && ($char === "o" || $char === "O") && ($i === 0 || ctype_space($sql[$i - 1]))) {
+                if (preg_match('/^ORDER\s+BY\b/i', substr($sql, $i))) {
+                    $lastOrderByPos = $i;
+                }
+            }
+        }
+
+        if ($lastOrderByPos !== null) {
+            return rtrim(substr($sql, 0, $lastOrderByPos));
+        }
+
+        return $sql;
     }
 }
