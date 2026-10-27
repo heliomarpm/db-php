@@ -118,6 +118,38 @@ final class DB
         return self::connection()->transaction($callback);
     }
 
+    /**
+     * Inicia explicitamente uma nova transação na conexão ativa.
+     */
+    public static function beginTransaction(): void
+    {
+        self::connection()->beginTransaction();
+    }
+
+    /**
+     * Confirma explicitamente a transação ativa na conexão ativa.
+     */
+    public static function commit(): void
+    {
+        self::connection()->commit();
+    }
+
+    /**
+     * Reverte explicitamente a transação ativa na conexão ativa.
+     */
+    public static function rollback(): void
+    {
+        self::connection()->rollback();
+    }
+
+    /**
+     * Verifica se há uma transação ativa na conexão ativa.
+     */
+    public static function inTransaction(): bool
+    {
+        return self::connection()->inTransaction();
+    }
+
     public static function sqlite(string $database = ":memory:", string $name = "default"): DriverInterface
     {
         return self::connect(Config::forSqlite($database), $name);

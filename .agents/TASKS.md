@@ -1,10 +1,12 @@
 # Backlog do Projeto: heliomarpm/db-php
 
 > **Meta:** Evolução de estabilidade, resiliência, performance e consolidação da biblioteca db-php (v1.2)\
-> **Status:** em desenvolvimento | **Progresso:** 12/17 (71%) | **WIP:** 0/2 | **Atualizado em:** 2026-10-27
+> **Status:** em desenvolvimento | **Progresso:** 13/17 (76%) | **WIP:** 0/2 | **Atualizado em:** 2026-10-27
 
 ## Concluídas recentemente
 
+- [x] **T-017 · P2 · Incluir exemplo interativo de controle manual de transações na demo (`beginTransaction`, `commit`, `rollback`)** (2026-10-27)
+  - Evidência: Adicionado novo cenário interativo `transacao_manual` na demo com seletor de modo `commit` e `rollback`. Implementados métodos estáticos delegadores `DB::beginTransaction()`, `DB::commit()`, `DB::rollback()` e `DB::inTransaction()` na fachada. Tabela de contas enriquecida com saldos anteriores, variações monetárias calculadas e badges de ciclo transacional. Testes unitários em `DBTest` cobrindo fluxo manual de commit e rollback 100% verdes (25 testes, 125 asserções). Validado no navegador via subagente com gravação e screenshot.
 - [x] **T-012 · P1 · Corrigir detecção de dialeto SQLite e parâmetros de conexão no PdoDriver e Config** (2026-10-27)
   - Evidência: Atualizado `PdoDriver` para reconhecer `driver === 'sqlite'` e extensões `.db`/`.sqlite3`, permitindo conexão SQLite mesmo sem sufixo `.sqlite`. `Config::fromArray()` atualizado para aceitar tanto `host` quanto `hostname` (além de `user` e `pass`). Adicionados métodos `DB::setDefaultConnection()` e `DB::getDefaultConnection()` na fachada estática com reset automático em `DB::disconnect()`. Documentação do README.md alinhada com parâmetros nomeados (`host:`). Testes unitários em `ConfigTest`, `DBTest` e `PdoDriverTest` 100% verdes (23 testes, 116 asserções).
 - [x] **T-011 · P1 · Corrigir inferência e bind de booleanos e nulos no MysqliDriver** (2026-10-27)
@@ -21,15 +23,6 @@
 ## Backlog
 
 ### Alta Prioridade (Horizonte 1: Quick Wins & Higiene Imediata)
-
-- [ ] **T-017 · P2 · Incluir exemplo interativo de controle manual de transações na demo (`beginTransaction`, `commit`, `rollback`)**
-  - Origem: manual | Dep.: nenhuma
-  - Ref: [demo/index.php](../demo/index.php), [DriverInterface.php](../src/Contracts/DriverInterface.php#L60-L75), [PdoDriver.php](../src/Drivers/PdoDriver.php#L83-L105)
-  - DoD:
-    - [ ] Adicionar novo cenário na demo (ex: `transacao_manual`) demonstrando o fluxo explícito com `beginTransaction()`, `execute()`, `commit()` e tratamento de exceção com `rollback()`
-    - [ ] Exibir código PHP idiomático com bloco `try/catch` manual e telemetria de execução no laboratório
-    - [ ] Adicionar pílula de navegação e garantir renderização consistente das tabelas de contas antes e depois da transação
-    - [ ] Validar compatibilidade no navegador via subagente e manter testes unitários passando
 
 - [ ] **T-013 · P0 · Implementar suíte de testes unitários para MysqliDriver**
   - Origem: assessment A-02 | Dep.: T-009, T-011

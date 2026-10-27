@@ -80,4 +80,37 @@ final class DBTest extends TestCase
 
         DB::setDefaultConnection("   ");
     }
+
+    public function testManualTransactionCommit(): void
+    {
+        $this->assertFalse(DB::inTransaction());
+
+        DB::beginTransaction();
+        $this->assertTrue(DB::inTransaction());
+
+        DB::execute("INSERT INTO settings (key, value) VALUES (?, ?)", ["tx.commit", "success"]);
+        DB::commit();
+
+        $this->assertFalse(DB::inTransaction());
+
+        $res = DB::query("SELECT value FROM settings WHERE key = ?", ["tx.commit"]);
+        $this->assertSame(1, $res->count);
+        $this->assertSame("success", $res->row["value"]);
+    }
+
+    public function testManualTransactionRollback(): void
+    {
+        $this->assertFalse(DB::inTransaction());
+
+        DB::beginTransaction();
+        $this->assertTrue(DB::inTransaction());
+
+        DB::execute("INSERT INTO settings (key, value) VALUES (?, ?)", ["tx.rollback", "fail"]);
+        DB::rollback();
+
+        $this->assertFalse(DB::inTransaction());
+
+        $res = DB::query("SELECT value FROM settings WHERE key = ?", ["tx.rollback"]);
+        $this->assertSame(0, $res->count);
+    }
 }

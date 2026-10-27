@@ -385,6 +385,101 @@ CODE,
         },
     ],
 
+    'transacao_manual' => [
+        'titulo' => 'Controle Manual de Transação (Begin / Commit / Rollback)',
+        'tag'    => 'MANUAL TX',
+        'badge'  => 'bg-warning text-dark',
+        'desc'   => 'Demonstra o controle transacional explícito sem callbacks: beginTransaction(), operações execute(), commit() e rollback() em bloco try/catch.',
+        'codigo' => <<<'CODE'
+// Alternância dinâmica pelo parâmetro ?modo=commit ou ?modo=rollback
+$modo = $_GET['modo'] ?? 'commit';
+
+// 1. Inicia explicitamente a transação:
+$db->beginTransaction();
+
+try {
+    // 2. Debita R$ 1.200,00 da Empresa Matriz (id_conta = 1):
+    $db->execute("
+        UPDATE contas
+        SET saldo = saldo - :valor
+        WHERE id_conta = :origem
+    ", ['valor' => 1200.00, 'origem' => 1]);
+
+    if ($modo === 'rollback') {
+        // Simulação de erro crítico externo (ex: timeout de rede ou regra de negócio):
+        throw new \RuntimeException("Falha simulada na liquidação bancária!");
+    }
+
+    // 3. Credita R$ 1.200,00 na Filial Sul Peças (id_conta = 2):
+    $db->execute("
+        UPDATE contas
+        SET saldo = saldo + :valor
+        WHERE id_conta = :destino
+    ", ['valor' => 1200.00, 'destino' => 2]);
+
+    // 4. Confirma todas as operações atomicamente:
+    $db->commit();
+} catch (\Throwable $e) {
+    // 5. Reverte todas as modificações mantendo a base íntegra:
+    $db->rollback();
+}
+
+// 6. Consulta os saldos finais:
+$contas = $db->query("SELECT id_conta, titular, saldo FROM contas");
+CODE,
+        'run' => function (HeliomarPM\DbPHP\Contracts\DriverInterface $db) {
+            $modo = $_GET['modo'] ?? 'commit';
+            $statusTransacao = '';
+            $detalheAcao = '';
+
+            // Captura os saldos iniciais antes da transação manual
+            $saldosIniciais = $db->query("SELECT id_conta, saldo FROM contas")->rows;
+            $saldoInicialMap = array_column($saldosIniciais, 'saldo', 'id_conta');
+
+            $start = microtime(true);
+            // Inicia o ciclo transacional manual
+            $db->beginTransaction();
+
+            try {
+                $db->execute("UPDATE contas SET saldo = saldo - ? WHERE id_conta = ?", [1200.00, 1]);
+
+                if ($modo === 'rollback') {
+                    throw new RuntimeException("Simulação de falha: Conexão interrompida antes da confirmação final!");
+                }
+
+                $db->execute("UPDATE contas SET saldo = saldo + ? WHERE id_conta = ?", [1200.00, 2]);
+                $db->commit();
+                $statusTransacao = 'Confirmada via $db->commit()';
+                $detalheAcao = 'R$ 1.200,00 transferidos da Matriz para a Filial com sucesso';
+            } catch (Throwable $e) {
+                $db->rollback();
+                $statusTransacao = 'Revertida via $db->rollback()';
+                $detalheAcao = $e->getMessage();
+            }
+            $elapsed = microtime(true) - $start;
+
+            $res = $db->query("SELECT id_conta, titular, saldo FROM contas");
+            $rows = array_map(function ($row) use ($statusTransacao, $detalheAcao, $saldoInicialMap) {
+                $id = $row['id_conta'];
+                $saldoAntes = (float)($saldoInicialMap[$id] ?? 0);
+                $saldoDepois = (float)$row['saldo'];
+                $diff = $saldoDepois - $saldoAntes;
+
+                $row['saldo_anterior'] = $saldoAntes;
+                $row['variacao'] = ($diff > 0 ? '+' : '') . number_format($diff, 2, ',', '.') . ' R$';
+                $row['ciclo_transacao'] = $statusTransacao;
+                $row['detalhe'] = $detalheAcao;
+                return $row;
+            }, $res->rows);
+
+            return new HeliomarPM\DbPHP\Results\QueryResult(
+                rows: $rows,
+                count: count($rows),
+                elapsedTime: $elapsed,
+            );
+        },
+    ],
+
     'playground' => [
         'titulo' => 'SQL Playground Interativo (Livre)',
         'tag'    => 'PLAYGROUND',
@@ -479,6 +574,20 @@ if (!function_exists('renderGridTable')) {
                         default     => 'bg-secondary'
                     };
                     $celula = "<span class='badge {$cor} text-uppercase' style='font-size: 0.7rem;'>{$valor}</span>";
+                } elseif ($col === 'ciclo_transacao' || $col === 'estado_transacao' || $col === 'status_transacao') {
+                    $isCommit = str_contains((string)$valor, 'Commit') || str_contains((string)$valor, 'commit');
+                    $cor = $isCommit ? 'bg-success' : 'bg-danger';
+                    $icon = $isCommit ? 'bi-check-circle-fill' : 'bi-arrow-counterclockwise';
+                    $celula = "<span class='badge {$cor} text-white'><i class='bi {$icon} me-1'></i>{$valor}</span>";
+                } elseif ($col === 'variacao') {
+                    $isPositivo = str_starts_with((string)$valor, '+');
+                    $isZero = str_contains((string)$valor, '0,00');
+                    if ($isZero) {
+                        $celula = '<span class="badge bg-secondary font-mono">0,00 R$</span>';
+                    } else {
+                        $cor = $isPositivo ? 'bg-success-subtle text-success border border-success' : 'bg-danger-subtle text-danger border border-danger';
+                        $celula = "<span class='badge {$cor} font-mono fw-bold'>{$valor}</span>";
+                    }
                 } elseif ($col === 'vip') {
                     $celula = ((int)$valor === 1)
                         ? '<span class="badge bg-warning text-dark fw-bold">VIP ⭐</span>'
@@ -721,6 +830,32 @@ if (!function_exists('renderGridTable')) {
         <?php if ($erroExecucao): ?>
             <div class="alert alert-danger bg-danger-subtle text-danger border-danger mb-4">
                 <i class="bi bi-exclamation-triangle-fill me-2"></i><strong>Erro na Execução:</strong> <?= htmlspecialchars($erroExecucao) ?>
+            </div>
+        <?php endif; ?>
+
+        <?php if ($cenarioAtual === 'transacao_manual'):
+            $modoAtual = $_GET['modo'] ?? 'commit';
+        ?>
+            <!-- PAINEL INTERATIVO DE CONTROLE MANUAL DE TRANSAÇÃO -->
+            <div class="bg-card p-3 rounded-3 mb-4 border border-secondary border-opacity-25 shadow-sm">
+                <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+                    <div>
+                        <span class="text-secondary small fw-semibold text-uppercase font-mono d-block mb-1">
+                            <i class="bi bi-sliders me-1"></i> Controle Interativo do Fluxo Transacional
+                        </span>
+                        <span class="text-white small">
+                            Alterne entre os modos para testar o comportamento manual com <code>$db->commit()</code> ou reversão com <code>$db->rollback()</code>:
+                        </span>
+                    </div>
+                    <div class="btn-group" role="group">
+                        <a href="?cenario=transacao_manual&modo=commit" class="btn btn-sm <?= ($modoAtual !== 'rollback') ? 'btn-success fw-bold shadow-sm' : 'btn-outline-success' ?>">
+                            <i class="bi bi-check-circle-fill me-1"></i> Executar Commit ($db->commit())
+                        </a>
+                        <a href="?cenario=transacao_manual&modo=rollback" class="btn btn-sm <?= ($modoAtual === 'rollback') ? 'btn-danger fw-bold shadow-sm' : 'btn-outline-danger' ?>">
+                            <i class="bi bi-arrow-counterclockwise me-1"></i> Simular Falha ($db->rollback())
+                        </a>
+                    </div>
+                </div>
             </div>
         <?php endif; ?>
 
