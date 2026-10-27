@@ -30,11 +30,11 @@ final readonly class Config
     {
         return new self(
             driver: (string)($data["driver"] ?? "pdo"),
-            host: (string)($data["host"] ?? "127.0.0.1"),
+            host: (string)($data["host"] ?? $data["hostname"] ?? "127.0.0.1"),
             port: (int)($data["port"] ?? 3306),
             database: (string)($data["database"] ?? ""),
-            username: isset($data["username"]) ? (string)$data["username"] : null,
-            password: isset($data["password"]) ? (string)$data["password"] : null,
+            username: isset($data["username"]) ? (string)$data["username"] : (isset($data["user"]) ? (string)$data["user"] : null),
+            password: isset($data["password"]) ? (string)$data["password"] : (isset($data["pass"]) ? (string)$data["pass"] : null),
             charset: (string)($data["charset"] ?? "utf8mb4"),
             collation: (string)($data["collation"] ?? "utf8mb4_unicode_ci"),
             options: (array)($data["options"] ?? [])

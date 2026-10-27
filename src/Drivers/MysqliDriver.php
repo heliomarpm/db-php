@@ -219,15 +219,20 @@ final class MysqliDriver implements DriverInterface
         }
 
         $types = "";
+        $boundParams = [];
         foreach ($params as $param) {
             $types .= match (true) {
+                is_bool($param) => "i",
                 is_int($param) => "i",
                 is_float($param) => "d",
                 default => "s",
             };
+            $boundParams[] = is_bool($param) ? (int)$param : $param;
         }
 
-        $stmt->bind_param($types, ...$params);
+        if (!empty($boundParams)) {
+            $stmt->bind_param($types, ...$boundParams);
+        }
 
         return $stmt;
     }

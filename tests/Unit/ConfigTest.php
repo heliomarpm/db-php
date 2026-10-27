@@ -52,4 +52,18 @@ final class ConfigTest extends TestCase
         $this->assertNull($config->username);
         $this->assertNull($config->password);
     }
+
+    public function testFromArrayWithHostnameAndAliases(): void
+    {
+        $config = Config::fromArray([
+            "hostname" => "192.168.1.50",
+            "user" => "custom_user",
+            "pass" => "custom_pass",
+            "database" => "test_db",
+        ]);
+
+        $this->assertSame("192.168.1.50", $config->host);
+        $this->assertSame("custom_user", $config->username);
+        $this->assertSame("custom_pass", $config->password);
+    }
 }
