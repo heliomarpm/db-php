@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <defs>
+    <linearGradient id="grad-top" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#00A3FF;stop-opacity:1"/>
+      <stop offset="100%" style="stop-color:#0066CC;stop-opacity:1"/>
+    </linearGradient>
+    <linearGradient id="grad-mid" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FF7A00;stop-opacity:1"/>
+      <stop offset="100%" style="stop-color:#CC5500;stop-opacity:1"/>
+    </linearGradient>
+    <linearGradient id="grad-bot" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#00A3FF;stop-opacity:0.75"/>
+      <stop offset="100%" style="stop-color:#0055AA;stop-opacity:0.75"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Cilindro superior (tampa) -->
+  <ellipse cx="16" cy="8" rx="11" ry="4" fill="url(#grad-top)"/>
+  <!-- Corpo cilindro superior -->
+  <rect x="5" y="8" width="22" height="6" fill="url(#grad-top)" opacity="0.9"/>
+  <!-- Tampa inferior cilindro superior -->
+  <ellipse cx="16" cy="14" rx="11" ry="4" fill="url(#grad-top)" opacity="0.85"/>
+
+  <!-- Cilindro do meio (destaque laranja) -->
+  <ellipse cx="16" cy="14" rx="11" ry="4" fill="url(#grad-mid)"/>
+  <rect x="5" y="14" width="22" height="6" fill="url(#grad-mid)" opacity="0.9"/>
+  <ellipse cx="16" cy="20" rx="11" ry="4" fill="url(#grad-mid)" opacity="0.85"/>
+
+  <!-- Cilindro inferior -->
+  <ellipse cx="16" cy="20" rx="11" ry="4" fill="url(#grad-bot)"/>
+  <rect x="5" y="20" width="22" height="6" fill="url(#grad-bot)" opacity="0.9"/>
+  <ellipse cx="16" cy="26" rx="11" ry="4" fill="url(#grad-bot)" opacity="0.85"/>
+
+  <!-- Reflexo/brilho -->
+  <ellipse cx="13" cy="8" rx="4" ry="1.5" fill="white" opacity="0.3"/>
+</svg>
