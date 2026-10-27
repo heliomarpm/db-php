@@ -327,4 +327,105 @@ final class MysqliDriverTest extends TestCase
         $res = $this->driver->query("SELECT * FROM test_users WHERE email = ?", ["uncommitted@test.com"]);
         $this->assertSame(0, $res->count);
     }
+
+    public function testResolveNamedParametersLexicalParser(): void
+    {
+        // 1. Preservação de literais com aspas simples, duplas e backticks
+        [$sql1, $params1] = MysqliDriver::resolveNamedParameters(
+            "SELECT * FROM logs WHERE msg = 'Erro: :id falhou' AND \"Outro: :id\" = 1 AND `col:id` = :id",
+            ["id" => 10]
+        );
+        $this->assertSame(
+            "SELECT * FROM logs WHERE msg = 'Erro: :id falhou' AND \"Outro: :id\" = 1 AND `col:id` = ?",
+            $sql1
+        );
+        $this->assertSame([10], $params1);
+
+        // 2. Preservação de aspas escapadas (\' e \") e aspas duplicadas ('' e "")
+        [$sql2, $params2] = MysqliDriver::resolveNamedParameters(
+            "SELECT * FROM t WHERE a = 'It\'s :param' AND b = 'It''s :param' AND c = \"Dbl \"\" :param\" AND d = :param",
+            ["param" => "ok"]
+        );
+        $this->assertSame(
+            "SELECT * FROM t WHERE a = 'It\'s :param' AND b = 'It''s :param' AND c = \"Dbl \"\" :param\" AND d = ?",
+            $sql2
+        );
+        $this->assertSame(["ok"], $params2);
+
+        // 3. Funções de data/hora (DATE_FORMAT com %H:%i:%s) e comentários SQL
+        [$sql3, $params3] = MysqliDriver::resolveNamedParameters(
+            "SELECT DATE_FORMAT(dt, '%Y-%m-%d %H:%i:%s') AS hora -- comment :param\n/* block :param */ FROM t WHERE id = :id",
+            ["id" => 99, "i" => "bad", "s" => "bad", "param" => "bad"]
+        );
+        $this->assertSame(
+            "SELECT DATE_FORMAT(dt, '%Y-%m-%d %H:%i:%s') AS hora -- comment :param\n/* block :param */ FROM t WHERE id = ?",
+            $sql3
+        );
+        $this->assertSame([99], $params3);
+
+        // 4. Parâmetro nomeado repetido (múltiplas ocorrências de :termo)
+        [$sql4, $params4] = MysqliDriver::resolveNamedParameters(
+            "SELECT * FROM users WHERE (name LIKE :termo OR email LIKE :termo OR bio LIKE :termo) AND role = :role",
+            ["termo" => "%dev%", "role" => "admin"]
+        );
+        $this->assertSame(
+            "SELECT * FROM users WHERE (name LIKE ? OR email LIKE ? OR bio LIKE ?) AND role = ?",
+            $sql4
+        );
+        $this->assertSame(["%dev%", "%dev%", "%dev%", "admin"], $params4);
+
+        // 5. Suporte a chaves com prefixo dois-pontos nos parâmetros
+        [$sql5, $params5] = MysqliDriver::resolveNamedParameters(
+            "SELECT * FROM users WHERE id = :id AND code = :code",
+            [":id" => 55, ":code" => "ABC"]
+        );
+        $this->assertSame("SELECT * FROM users WHERE id = ? AND code = ?", $sql5);
+        $this->assertSame([55, "ABC"], $params5);
+
+        // 6. Operadores especiais de banco (:: para typecast e := para atribuição em MySQL)
+        [$sql6, $params6] = MysqliDriver::resolveNamedParameters(
+            "SELECT @num := :start, col::integer FROM t WHERE id = :id",
+            ["start" => 1, "id" => 42]
+        );
+        $this->assertSame("SELECT @num := ?, col::integer FROM t WHERE id = ?", $sql6);
+        $this->assertSame([1, 42], $params6);
+
+        // 7. Parâmetros posicionais ou lista vazia retornam sem alteração
+        [$sql7, $params7] = MysqliDriver::resolveNamedParameters("SELECT * FROM t WHERE id = ?", [123]);
+        $this->assertSame("SELECT * FROM t WHERE id = ?", $sql7);
+        $this->assertSame([123], $params7);
+    }
+
+    public function testNamedParametersWithRepeatedKeysAndLiteralsInDatabase(): void
+    {
+        $this->assertNotNull($this->driver);
+
+        $this->driver->execute("INSERT INTO test_users (name, email, active) VALUES (?, ?, ?)", [
+            "Carlos Silva", "carlos@test.com", 1,
+        ]);
+        $this->driver->execute("INSERT INTO test_users (name, email, active) VALUES (?, ?, ?)", [
+            "Mariana Costa", "mariana_silva@test.com", 1,
+        ]);
+        $this->driver->execute("INSERT INTO test_users (name, email, active) VALUES (?, ?, ?)", [
+            "Carlos Eduardo", "eduardo@test.com", 0,
+        ]);
+
+        // Busca com parâmetro repetido :termo e literal com dois-pontos
+        $result = $this->driver->query(
+            "SELECT id, name, email, DATE_FORMAT(NOW(), '%H:%i:%s') AS hora_atual, 'Status: :termo' AS literal_info
+             FROM test_users
+             WHERE (name LIKE :termo OR email LIKE :termo) AND active = :active
+             ORDER BY id ASC",
+            [
+                "termo" => "%silva%",
+                "active" => 1,
+            ]
+        );
+
+        $this->assertSame(2, $result->count);
+        $this->assertSame("Carlos Silva", $result->rows[0]["name"]);
+        $this->assertSame("Mariana Costa", $result->rows[1]["name"]);
+        $this->assertSame("Status: :termo", $result->rows[0]["literal_info"]);
+        $this->assertNotEmpty($result->rows[0]["hora_atual"]);
+    }
 }

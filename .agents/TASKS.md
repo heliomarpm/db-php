@@ -1,10 +1,12 @@
 # Backlog do Projeto: heliomarpm/db-php
 
 > **Meta:** Evolução de estabilidade, resiliência, performance e consolidação da biblioteca db-php (v1.2)\
-> **Status:** em desenvolvimento | **Progresso:** 15/18 (83%) | **WIP:** 0/2 | **Atualizado em:** 2026-10-27
+> **Status:** em desenvolvimento | **Progresso:** 16/18 (88%) | **WIP:** 0/2 | **Atualizado em:** 2026-10-27
 
 ## Concluídas recentemente
 
+- [x] **T-015 · P2 · Parser léxico seguro para parâmetros nomeados no MysqliDriver** (2026-10-27)
+  - Evidência: Substituído parser regex ingênuo em `MysqliDriver::resolveNamedParameters` por analisador léxico seguro que identifica e preserva literais em aspas simples (`\'`, `''`), aspas duplas (`\"`, `""`), identificadores entre crases (`` ` ``), comentários de linha (`--`, `#`), comentários em bloco (`/* ... */`) e operadores especiais de banco (`::`, `:=`). Adicionado suporte a parâmetros repetidos (mesma chave substituída por `?` e replicada ordenadamente no array posicional) e chaves com ou sem prefixo de dois-pontos (`:id` e `id`). Suíte de testes unitários e de integração adicionada em `tests/Unit/MysqliDriverTest.php`, elevando a suíte para 37 testes e 187 asserções 100% verdes. Análise estática com PHPStan Nível 8 com 0 erros e Pint 100% aprovado.
 - [x] **T-014 · P2 · Extrair classe base abstrata AbstractDriver consolidando métodos comuns** (2026-10-27)
   - Evidência: Criada classe abstrata `AbstractDriver` implementando `DriverInterface`, centralizando trait `PaginatesQueries`, propriedade `$affectedRows`, métodos `transaction()`, `countAffected()` e `__destruct()`. `PdoDriver` e `MysqliDriver` refatorados estendendo `AbstractDriver` e eliminando código duplicado. Suíte completa de 35 testes e 167 asserções 100% verde sem regressões. Análise estática com PHPStan Nível 8 com 0 erros.
 - [x] **T-013 · P0 · Implementar suíte de testes unitários para MysqliDriver** (2026-10-27)
@@ -31,14 +33,6 @@
 *(Nenhuma tarefa de alta prioridade restante)*
 
 ### Média Prioridade (Horizonte 2: Consolidação & Refatoração Tática)
-
-- [ ] **T-015 · P2 · Parser léxico seguro para parâmetros nomeados no MysqliDriver**
-  - Origem: assessment A-04 | Dep.: T-013
-  - Ref: [MysqliDriver.php](../src/Drivers/MysqliDriver.php#L247-L273)
-  - DoD:
-    - [ ] Substituir regex simples por parser que ignore literais entre aspas simples/duplas e funções de data com `:`
-    - [ ] Suportar múltiplos usos da mesma chave nomeada na query (ex: `:termo` repetido)
-    - [ ] Testes unitários cobrindo literais com dois pontos e múltiplos parâmetros nomeados idênticos
 
 - [ ] **T-016 · P3 · Consolidar manipulação de resultados e padronização JSON entre QueryResult e PaginatedResult**
   - Origem: assessment C-02, C-03, A-08 | Dep.: nenhuma

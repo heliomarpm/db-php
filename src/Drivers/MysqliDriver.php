@@ -32,6 +32,67 @@ final class MysqliDriver extends AbstractDriver
         $this->connect();
     }
 
+    /**
+     * Converte parâmetros nomeados em posicionais (?) ignorando literais de texto,
+     * identificadores, comentários SQL e operadores especiais (::, :=).
+     *
+     * @param array<int|string, mixed> $params
+     * @return array{0: string, 1: list<mixed>}
+     * @throws QueryException
+     */
+    public static function resolveNamedParameters(string $sql, array $params): array
+    {
+        if (empty($params) || array_is_list($params)) {
+            return [$sql, $params];
+        }
+
+        $pattern = '/(
+            \'(?:[^\'\\\\]|\\\\.|\'\')*\'
+            |
+            "(?:[^"\\\\]|\\\\.|"")*"
+            |
+            `(?:[^`\\\\]|\\\\.|``)*`
+            |
+            (?:--|\#)[^\r\n]*
+            |
+            \/\*[\s\S]*?\*\/
+        )
+        |
+        (::|:=)
+        |
+        (?<!:):([a-zA-Z_][a-zA-Z0-9_]*)
+        /xs';
+
+        $orderedParams = [];
+        $translatedSql = preg_replace_callback(
+            $pattern,
+            static function (array $matches) use ($params, &$orderedParams): string {
+                if (!empty($matches[1]) || !empty($matches[2])) {
+                    return $matches[0];
+                }
+
+                $key = $matches[3];
+                if (array_key_exists($key, $params)) {
+                    $orderedParams[] = $params[$key];
+                    return "?";
+                }
+                if (array_key_exists(":" . $key, $params)) {
+                    $orderedParams[] = $params[":" . $key];
+                    return "?";
+                }
+
+                return $matches[0];
+            },
+            $sql
+        );
+
+        if ($translatedSql === null) {
+            throw new QueryException("Erro ao processar parâmetros na consulta SQL: " . preg_last_error_msg(), $sql, $params);
+        }
+
+        return [$translatedSql, $orderedParams];
+    }
+
     public function query(string $sql, array $params = []): QueryResult
     {
         $this->assertConnected();
@@ -207,38 +268,6 @@ final class MysqliDriver extends AbstractDriver
         }
 
         return $stmt;
-    }
-
-    /**
-     * @param array<int|string, mixed> $params
-     * @return array{0: string, 1: list<mixed>}
-     */
-    private function resolveNamedParameters(string $sql, array $params): array
-    {
-        if (empty($params) || array_is_list($params)) {
-            return [$sql, $params];
-        }
-
-        $orderedParams = [];
-        $translatedSql = (string)preg_replace_callback(
-            '/:([a-zA-Z0-9_]+)/',
-            function (array $matches) use ($params, &$orderedParams): string {
-                $key = $matches[1];
-                if (array_key_exists($key, $params)) {
-                    $orderedParams[] = $params[$key];
-                    return "?";
-                }
-                if (array_key_exists(":" . $key, $params)) {
-                    $orderedParams[] = $params[":" . $key];
-                    return "?";
-                }
-                return $matches[0];
-            },
-            $sql
-        );
-
-        /** @var list<mixed> $orderedParams */
-        return [$translatedSql, $orderedParams];
     }
 
     /**
