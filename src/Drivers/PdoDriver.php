@@ -60,10 +60,6 @@ final class PdoDriver implements DriverInterface
                 elapsedTime: $elapsedTime
             );
         } catch (PDOException $e) {
-            if ($this->inTransaction()) {
-                $this->rollback();
-            }
-
             throw new QueryException($e->getMessage(), $sql, $params, $e->getCode(), $e);
         }
     }
@@ -80,10 +76,6 @@ final class PdoDriver implements DriverInterface
 
             return $this->affectedRows;
         } catch (PDOException $e) {
-            if ($this->inTransaction()) {
-                $this->rollback();
-            }
-
             throw new QueryException($e->getMessage(), $sql, $params, $e->getCode(), $e);
         }
     }

@@ -72,10 +72,6 @@ final class MysqliDriver implements DriverInterface
                 elapsedTime: $elapsedTime
             );
         } catch (mysqli_sql_exception $e) {
-            if ($this->inTransaction) {
-                $this->rollback();
-            }
-
             throw new QueryException($e->getMessage(), $sql, $params, $e->getCode(), $e);
         }
     }
@@ -99,10 +95,6 @@ final class MysqliDriver implements DriverInterface
 
             return $this->affectedRows;
         } catch (mysqli_sql_exception $e) {
-            if ($this->inTransaction) {
-                $this->rollback();
-            }
-
             throw new QueryException($e->getMessage(), $sql, $params, $e->getCode(), $e);
         }
     }

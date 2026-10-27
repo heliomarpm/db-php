@@ -70,6 +70,26 @@ final class PdoDriverTest extends TestCase
         $resAposRollback = $this->driver->query("SELECT COUNT(*) AS total FROM users");
         $this->assertEquals(1, $resAposRollback->row["total"]);
     }
+
+    public function testTransactionDoesNotRollbackWhenQueryErrorHandledInCallback(): void
+    {
+        $this->driver->execute("INSERT INTO users (name, email) VALUES (?, ?)", ["Existing", "existing@example.com"]);
+
+        $this->driver->transaction(function (DriverInterface $db): void {
+            try {
+                $db->execute("INSERT INTO users (name, email) VALUES (?, ?)", ["Duplicate", "existing@example.com"]);
+            } catch (\HeliomarPM\DbPHP\Exceptions\QueryException) {
+                // Tratamento local do erro: a transação permanece viva
+            }
+
+            $db->execute("INSERT INTO users (name, email) VALUES (?, ?)", ["Recovered", "recovered@example.com"]);
+        });
+
+        $res = $this->driver->query("SELECT * FROM users WHERE email = ?", ["recovered@example.com"]);
+        $this->assertSame(1, $res->count);
+        $this->assertSame("Recovered", $res->row["name"]);
+    }
+
     public function testNamedParametersWithAndWithoutColon(): void
     {
         $this->driver->execute(
