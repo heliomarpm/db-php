@@ -1,0 +1,12 @@
+# 1. Ignora tudo por padrão
+* export-ignore
+
+# 2. Abre exceção para a pasta src e seu conteúdo
+src/ -export-ignore
+src/** -export-ignore
+
+# 3. ABRE EXCEÇÃO PARA ARQUIVOS OBRIGATÓRIOS (MUITO IMPORTANTE)
+composer.json -export-ignore
+README.md -export-ignore
+LICENSE -export-ignore
+.gitattributes -export-ignore
