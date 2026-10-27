@@ -4,39 +4,30 @@ declare(strict_types=1);
 
 namespace HeliomarPM\DbPHP\Drivers;
 
-use HeliomarPM\DbPHP\Concerns\PaginatesQueries;
 use HeliomarPM\DbPHP\Config;
-use HeliomarPM\DbPHP\Contracts\DriverInterface;
 use HeliomarPM\DbPHP\Exceptions\ConnectionException;
 use HeliomarPM\DbPHP\Exceptions\QueryException;
 use HeliomarPM\DbPHP\Results\QueryResult;
 use PDO;
 use PDOException;
 use PDOStatement;
-use Throwable;
 
-final class PdoDriver implements DriverInterface
+final class PdoDriver extends AbstractDriver
 {
-    use PaginatesQueries;
-
     private ?PDO $pdo;
-    private int $affectedRows = 0;
 
     public function __construct(
-        private readonly Config $config,
+        Config $config,
         ?PDO $existingPdo = null
     ) {
+        parent::__construct($config);
+
         if ($existingPdo !== null) {
             $this->pdo = $existingPdo;
             return;
         }
 
         $this->connect();
-    }
-
-    public function __destruct()
-    {
-        $this->close();
     }
 
     public function query(string $sql, array $params = []): QueryResult
@@ -109,20 +100,6 @@ final class PdoDriver implements DriverInterface
         return $this->pdo !== null && $this->pdo->inTransaction();
     }
 
-    public function transaction(callable $callback): mixed
-    {
-        $this->beginTransaction();
-
-        try {
-            $result = $callback($this);
-            $this->commit();
-            return $result;
-        } catch (Throwable $e) {
-            $this->rollback();
-            throw $e;
-        }
-    }
-
     public function lastInsertId(): int|string
     {
         $this->assertConnected();
@@ -131,11 +108,6 @@ final class PdoDriver implements DriverInterface
             return 0;
         }
         return is_numeric($id) ? (int)$id : $id;
-    }
-
-    public function countAffected(): int
-    {
-        return $this->affectedRows;
     }
 
     public function escape(string $value): string

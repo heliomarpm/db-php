@@ -5,40 +5,31 @@ declare(strict_types=1);
 namespace HeliomarPM\DbPHP\Drivers;
 
 use Exception;
-use HeliomarPM\DbPHP\Concerns\PaginatesQueries;
 use HeliomarPM\DbPHP\Config;
-use HeliomarPM\DbPHP\Contracts\DriverInterface;
 use HeliomarPM\DbPHP\Exceptions\ConnectionException;
 use HeliomarPM\DbPHP\Exceptions\QueryException;
 use HeliomarPM\DbPHP\Results\QueryResult;
 use mysqli;
 use mysqli_sql_exception;
 use mysqli_stmt;
-use Throwable;
 
-final class MysqliDriver implements DriverInterface
+final class MysqliDriver extends AbstractDriver
 {
-    use PaginatesQueries;
-
     private ?mysqli $conn;
-    private int $affectedRows = 0;
     private bool $inTransaction = false;
 
     public function __construct(
-        private readonly Config $config,
+        Config $config,
         ?mysqli $existingConn = null
     ) {
+        parent::__construct($config);
+
         if ($existingConn !== null) {
             $this->conn = $existingConn;
             return;
         }
 
         $this->connect();
-    }
-
-    public function __destruct()
-    {
-        $this->close();
     }
 
     public function query(string $sql, array $params = []): QueryResult
@@ -137,30 +128,11 @@ final class MysqliDriver implements DriverInterface
         return $this->inTransaction;
     }
 
-    public function transaction(callable $callback): mixed
-    {
-        $this->beginTransaction();
-
-        try {
-            $result = $callback($this);
-            $this->commit();
-            return $result;
-        } catch (Throwable $e) {
-            $this->rollback();
-            throw $e;
-        }
-    }
-
     public function lastInsertId(): int|string
     {
         $this->assertConnected();
         $id = $this->conn->insert_id;
         return is_numeric($id) ? (int)$id : (string)$id;
-    }
-
-    public function countAffected(): int
-    {
-        return $this->affectedRows;
     }
 
     public function escape(string $value): string

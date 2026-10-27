@@ -1,10 +1,12 @@
 # Backlog do Projeto: heliomarpm/db-php
 
 > **Meta:** Evolução de estabilidade, resiliência, performance e consolidação da biblioteca db-php (v1.2)\
-> **Status:** em desenvolvimento | **Progresso:** 14/17 (82%) | **WIP:** 0/2 | **Atualizado em:** 2026-10-27
+> **Status:** em desenvolvimento | **Progresso:** 15/18 (83%) | **WIP:** 0/2 | **Atualizado em:** 2026-10-27
 
 ## Concluídas recentemente
 
+- [x] **T-014 · P2 · Extrair classe base abstrata AbstractDriver consolidando métodos comuns** (2026-10-27)
+  - Evidência: Criada classe abstrata `AbstractDriver` implementando `DriverInterface`, centralizando trait `PaginatesQueries`, propriedade `$affectedRows`, métodos `transaction()`, `countAffected()` e `__destruct()`. `PdoDriver` e `MysqliDriver` refatorados estendendo `AbstractDriver` e eliminando código duplicado. Suíte completa de 35 testes e 167 asserções 100% verde sem regressões. Análise estática com PHPStan Nível 8 com 0 erros.
 - [x] **T-013 · P0 · Implementar suíte de testes unitários para MysqliDriver** (2026-10-27)
   - Evidência: Criada suíte completa em `tests/Unit/MysqliDriverTest.php` cobrindo conexões válidas e com erro (`ConnectionException`), `execute()`, `lastInsertId()`, `countAffected()`, `query()`, binds posicionais e nomeados, transações automáticas e manuais (`beginTransaction`, `commit`, `rollback`, `inTransaction`), persistência da transação após tratamento de exceção local, `escape()` e paginação nativa. Configurado service container do MySQL no pipeline `.github/workflows/ci.yml`. Suíte com 11 testes e 55 asserções 100% verdes (35 testes no total da biblioteca).
 - [x] **T-017 · P2 · Incluir exemplo interativo de controle manual de transações na demo (`beginTransaction`, `commit`, `rollback`)** (2026-10-27)
@@ -30,15 +32,6 @@
 
 ### Média Prioridade (Horizonte 2: Consolidação & Refatoração Tática)
 
-- [ ] **T-014 · P2 · Extrair classe base abstrata AbstractDriver consolidando métodos comuns**
-  - Origem: assessment C-01 | Dep.: T-009, T-013
-  - Ref: [PdoDriver.php](../src/Drivers/PdoDriver.php), [MysqliDriver.php](../src/Drivers/MysqliDriver.php), [DriverInterface.php](../src/Contracts/DriverInterface.php)
-  - DoD:
-    - [ ] Criar `HeliomarPM\DbPHP\Drivers\AbstractDriver` implementando `DriverInterface`
-    - [ ] Centralizar implementação de `transaction()`, `countAffected()` e trait `PaginatesQueries`
-    - [ ] Refatorar `PdoDriver` e `MysqliDriver` estendendo `AbstractDriver` sem alteração de comportamento externo
-    - [ ] 100% dos testes unitários mantidos verdes
-
 - [ ] **T-015 · P2 · Parser léxico seguro para parâmetros nomeados no MysqliDriver**
   - Origem: assessment A-04 | Dep.: T-013
   - Ref: [MysqliDriver.php](../src/Drivers/MysqliDriver.php#L247-L273)
@@ -55,3 +48,11 @@
     - [ ] Padronizar convenção de chaves JSON (documentando e mantendo retrocompatibilidade)
     - [ ] Eliminar necessidade de `$count` obrigatório em `QueryResult` calculando automaticamente via `count($rows)`
     - [ ] Testes de serialização e manipulação validados em `QueryResultTest` e `PaginatedResultTest`
+
+- [ ] **T-018 · P3 · Adicionar favicon vetorial e tag de ícone na aplicação demo**
+  - Origem: manual | Dep.: nenhuma
+  - Ref: [demo/index.php](../demo/index.php), [demo/favicon.svg](../demo/favicon.svg)
+  - DoD:
+    - [ ] Criar arquivo de favicon vetorial SVG moderno (`demo/favicon.svg`) com as cores de marca (#00A3FF e #FF7A00) e cilindros/dados estilizados
+    - [ ] Adicionar tag `<link rel="icon" type="image/svg+xml" href="favicon.svg">` no `<head>` de `demo/index.php`
+    - [ ] Validar carregamento correto do favicon na aplicação de demonstração sem erros 404
