@@ -6,6 +6,7 @@ namespace HeliomarPM\DbPHP\Results;
 
 use ArrayAccess;
 use Countable;
+use HeliomarPM\DbPHP\Concerns\HasResultHelpers;
 use IteratorAggregate;
 use JsonSerializable;
 use RuntimeException;
@@ -14,24 +15,52 @@ use Traversable;
 /**
  * Objeto de resultado leve e ergonômico retornado por consultas SQL.
  *
+ * O campo `count` é calculado automaticamente a partir de `count($rows)`.
+ * O parâmetro `$count` permanece aceito no construtor por retrocompatibilidade,
+ * mas é ignorado em favor do cálculo automático.
+ *
+ * ### Estrutura JSON (`jsonSerialize`)
+ * ```json
+ * {
+ *   "count": 5,
+ *   "elapsed_time": 0.0012,
+ *   "row": { "id": 1, "nome": "..." },
+ *   "rows": [...]
+ * }
+ * ```
+ *
  * @implements IteratorAggregate<int, array<string, mixed>>
  * @implements ArrayAccess<int|string, mixed>
  */
 final readonly class QueryResult implements Countable, IteratorAggregate, ArrayAccess, JsonSerializable
 {
+    use HasResultHelpers;
+
     /**
+     * Primeira linha do resultado (atalho para `$rows[0]`).
+     *
      * @var array<string, mixed>
      */
     public array $row;
 
     /**
-     * @param array<int, array<string, mixed>> $rows
+     * Quantidade real de linhas no resultado (calculada automaticamente).
+     */
+    public int $count;
+
+    /**
+     * @param array<int, array<string, mixed>> $rows       Linhas retornadas pela consulta
+     * @param int                              $count      Ignorado; mantido por retrocompatibilidade. Use `count($rows)`.
+     * @param float                            $elapsedTime Tempo de execução em segundos
+     *
+     * @phpstan-ignore constructor.unusedParameter
      */
     public function __construct(
         public array $rows = [],
-        public int $count = 0,
+        int $count = 0,
         public float $elapsedTime = 0.0
     ) {
+        $this->count = count($this->rows);
         $this->row = $this->rows[0] ?? [];
     }
 
@@ -52,59 +81,17 @@ final readonly class QueryResult implements Countable, IteratorAggregate, ArrayA
     }
 
     /**
-     * @return array<int, mixed>
-     */
-    public function column(string $columnName): array
-    {
-        return array_column($this->rows, $columnName);
-    }
-
-    /**
-     * @param (callable(array<string, mixed>): bool)|null $predicate
-     * @param array<string, mixed>|null $default
-     * @return array<string, mixed>|null
-     */
-    public function firstOrDefault(?callable $predicate = null, ?array $default = null): ?array
-    {
-        if (empty($this->rows)) {
-            return $default;
-        }
-
-        if ($predicate === null) {
-            return $this->rows[0] ?? $default;
-        }
-
-        foreach ($this->rows as $row) {
-            if ($predicate($row)) {
-                return $row;
-            }
-        }
-
-        return $default;
-    }
-
-    /**
-     * Converte as linhas do resultado diretamente em uma instância de LinqPHP.
-     */
-    public function linq(): mixed
-    {
-        if (!class_exists("HeliomarPM\\LinqPHP\\LinqPHP")) {
-            throw new RuntimeException("O pacote 'heliomarpm/linq-php' não está instalado. Instale com: composer require heliomarpm/linq-php");
-        }
-
-        return \HeliomarPM\LinqPHP\LinqPHP::from($this->rows);
-    }
-
-    /**
+     * Serialização padronizada para JSON / APIs REST.
+     *
      * @return array<string, mixed>
      */
     public function jsonSerialize(): array
     {
         return [
-            "count" => $this->count,
-            "elapsedTime" => $this->elapsedTime,
-            "row" => $this->row,
-            "rows" => $this->rows,
+            'count'        => $this->count,
+            'elapsed_time' => $this->elapsedTime,
+            'row'          => $this->row,
+            'rows'         => $this->rows,
         ];
     }
 
@@ -124,11 +111,19 @@ final readonly class QueryResult implements Countable, IteratorAggregate, ArrayA
 
     public function offsetSet(mixed $offset, mixed $value): void
     {
-        throw new RuntimeException("QueryResult é imutável.");
+        throw new RuntimeException('QueryResult é imutável.');
     }
 
     public function offsetUnset(mixed $offset): void
     {
-        throw new RuntimeException("QueryResult é imutável.");
+        throw new RuntimeException('QueryResult é imutável.');
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    protected function getResultRows(): array
+    {
+        return $this->rows;
     }
 }

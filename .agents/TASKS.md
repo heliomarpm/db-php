@@ -1,7 +1,7 @@
 # Backlog do Projeto: heliomarpm/db-php
 
 > **Meta:** Evolução de estabilidade, resiliência, performance e consolidação da biblioteca db-php (v1.2)\
-> **Status:** em desenvolvimento | **Progresso:** 17/19 (89%) | **WIP:** 0/2 | **Atualizado em:** 2026-10-27
+> **Status:** em desenvolvimento | **Progresso:** 19/20 (95%) | **WIP:** 0/1 | **Atualizado em:** 2026-10-27
 
 ## Em progresso
 

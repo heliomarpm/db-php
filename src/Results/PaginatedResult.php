@@ -6,18 +6,38 @@ namespace HeliomarPM\DbPHP\Results;
 
 use ArrayIterator;
 use Countable;
+use HeliomarPM\DbPHP\Concerns\HasResultHelpers;
 use IteratorAggregate;
 use JsonSerializable;
-use RuntimeException;
 use Traversable;
 
 /**
  * Objeto imutável contendo os registros da página atual e metadados de paginação.
  *
+ * ### Estrutura JSON (`jsonSerialize`)
+ * ```json
+ * {
+ *   "data": [...],
+ *   "pagination": {
+ *     "total": 100,
+ *     "per_page": 15,
+ *     "current_page": 1,
+ *     "last_page": 7,
+ *     "from": 1,
+ *     "to": 15,
+ *     "has_more": true,
+ *     "has_previous": false
+ *   },
+ *   "elapsed_time": 0.0023
+ * }
+ * ```
+ *
  * @implements IteratorAggregate<int, array<string, mixed>>
  */
 final readonly class PaginatedResult implements Countable, IteratorAggregate, JsonSerializable
 {
+    use HasResultHelpers;
+
     public int $lastPage;
     public ?int $from;
     public ?int $to;
@@ -25,11 +45,11 @@ final readonly class PaginatedResult implements Countable, IteratorAggregate, Js
     public bool $hasPreviousPages;
 
     /**
-     * @param array<int, array<string, mixed>> $items Registros da página atual
-     * @param int $total Total global de registros correspondentes
-     * @param int $perPage Quantidade de registros por página
-     * @param int $currentPage Página atual (1-indexed)
-     * @param float $elapsedTime Tempo total de execução somado (contagem + consulta)
+     * @param array<int, array<string, mixed>> $items       Registros da página atual
+     * @param int                              $total       Total global de registros correspondentes
+     * @param int                              $perPage     Quantidade de registros por página
+     * @param int                              $currentPage Página atual (1-indexed)
+     * @param float                            $elapsedTime Tempo total de execução somado (contagem + consulta)
      */
     public function __construct(
         public array $items = [],
@@ -81,55 +101,7 @@ final readonly class PaginatedResult implements Countable, IteratorAggregate, Js
      */
     public function isNotEmpty(): bool
     {
-        return !empty($this->items);
-    }
-
-    /**
-     * Extrai os valores de uma coluna específica da página atual.
-     *
-     * @return list<mixed>
-     */
-    public function column(string $name): array
-    {
-        return array_column($this->items, $name);
-    }
-
-    /**
-     * Retorna o primeiro registro que satisfaz a condição ou o valor padrão.
-     *
-     * @param (callable(array<string, mixed>): bool)|null $predicate
-     * @param mixed $default
-     * @return mixed
-     */
-    public function firstOrDefault(?callable $predicate = null, mixed $default = null): mixed
-    {
-        if (empty($this->items)) {
-            return $default;
-        }
-
-        if ($predicate === null) {
-            return $this->items[0];
-        }
-
-        foreach ($this->items as $item) {
-            if ($predicate($item)) {
-                return $item;
-            }
-        }
-
-        return $default;
-    }
-
-    /**
-     * Transfere os itens da página atual para uma coleção LinqPHP fluente.
-     */
-    public function linq(): mixed
-    {
-        if (class_exists(\HeliomarPM\LinqPHP\LinqPHP::class)) {
-            return \HeliomarPM\LinqPHP\LinqPHP::from($this->items);
-        }
-
-        throw new RuntimeException("O pacote heliomarpm/linq-php não está instalado. Execute: composer require heliomarpm/linq-php");
+        return ! empty($this->items);
     }
 
     /**
@@ -148,18 +120,26 @@ final readonly class PaginatedResult implements Countable, IteratorAggregate, Js
     public function jsonSerialize(): array
     {
         return [
-            "data" => $this->items,
-            "pagination" => [
-                "total" => $this->total,
-                "per_page" => $this->perPage,
-                "current_page" => $this->currentPage,
-                "last_page" => $this->lastPage,
-                "from" => $this->from,
-                "to" => $this->to,
-                "has_more" => $this->hasMorePages,
-                "has_previous" => $this->hasPreviousPages,
+            'data'         => $this->items,
+            'pagination'   => [
+                'total'        => $this->total,
+                'per_page'     => $this->perPage,
+                'current_page' => $this->currentPage,
+                'last_page'    => $this->lastPage,
+                'from'         => $this->from,
+                'to'           => $this->to,
+                'has_more'     => $this->hasMorePages,
+                'has_previous' => $this->hasPreviousPages,
             ],
-            "elapsed_time" => $this->elapsedTime,
+            'elapsed_time' => $this->elapsedTime,
         ];
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    protected function getResultRows(): array
+    {
+        return $this->items;
     }
 }
