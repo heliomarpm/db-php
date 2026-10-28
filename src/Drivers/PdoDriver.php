@@ -46,6 +46,7 @@ final class PdoDriver extends AbstractDriver
             $elapsedTime = microtime(true) - $startTime;
 
             $this->affectedRows = $stmt->rowCount();
+            $this->logQuery($sql, $params, $elapsedTime, "query", count($rows));
 
             return new QueryResult(
                 rows: $rows,
@@ -60,6 +61,7 @@ final class PdoDriver extends AbstractDriver
     public function execute(string $sql, array $params = []): int
     {
         $this->assertConnected();
+        $startTime = microtime(true);
 
         [$resolvedSql, $resolvedParams] = $this->resolveNamedParameters($sql, $params);
 
@@ -67,7 +69,9 @@ final class PdoDriver extends AbstractDriver
             $stmt = $this->prepareStatement($resolvedSql, $resolvedParams);
             $stmt->execute();
 
+            $elapsedTime = microtime(true) - $startTime;
             $this->affectedRows = $stmt->rowCount();
+            $this->logQuery($sql, $params, $elapsedTime, "execute", $this->affectedRows);
 
             return $this->affectedRows;
         } catch (PDOException $e) {

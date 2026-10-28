@@ -8,6 +8,7 @@ use HeliomarPM\DbPHP\Concerns\PaginatesQueries;
 use HeliomarPM\DbPHP\Config;
 use HeliomarPM\DbPHP\Contracts\DriverInterface;
 use HeliomarPM\DbPHP\Exceptions\QueryException;
+use HeliomarPM\DbPHP\Support\QueryLog;
 use Throwable;
 
 abstract class AbstractDriver implements DriverInterface
@@ -108,5 +109,36 @@ abstract class AbstractDriver implements DriverInterface
             $this->rollback();
             throw $e;
         }
+    }
+
+    public function isDebug(): bool
+    {
+        return $this->config->debug || QueryLog::isEnabled();
+    }
+
+    /**
+     * Registra a consulta no coletor de telemetria se o modo debug estiver ativo.
+     *
+     * @param array<int|string, mixed> $params
+     */
+    protected function logQuery(
+        string $sql,
+        array $params,
+        float $elapsedTime,
+        string $type = "query",
+        int $affectedRows = 0
+    ): void {
+        if (!$this->isDebug()) {
+            return;
+        }
+
+        QueryLog::record(
+            sql: $sql,
+            params: $params,
+            elapsedTime: $elapsedTime,
+            type: $type,
+            driver: $this->config->driver,
+            affectedRows: $affectedRows
+        );
     }
 }

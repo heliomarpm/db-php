@@ -10,6 +10,8 @@ use HeliomarPM\DbPHP\Drivers\PdoDriver;
 use HeliomarPM\DbPHP\Exceptions\ConnectionException;
 use HeliomarPM\DbPHP\Results\PaginatedResult;
 use HeliomarPM\DbPHP\Results\QueryResult;
+use HeliomarPM\DbPHP\Support\QueryLog;
+use HeliomarPM\DbPHP\Support\QueryRecord;
 use InvalidArgumentException;
 
 final class DB
@@ -191,5 +193,57 @@ final class DB
         }
         self::$connections = [];
         self::$defaultConnection = "default";
+    }
+
+    /**
+     * Ativa ou desativa o modo de debug global para coleta de métricas e consultas.
+     */
+    public static function setDebug(bool $enabled): void
+    {
+        QueryLog::setEnabled($enabled);
+    }
+
+    /**
+     * Verifica se o modo de debug global está ativado.
+     */
+    public static function isDebug(): bool
+    {
+        return QueryLog::isEnabled();
+    }
+
+    /**
+     * Retorna a lista de consultas registradas no coletor de telemetria.
+     *
+     * @return list<QueryRecord>
+     */
+    public static function getQueryLog(): array
+    {
+        return QueryLog::all();
+    }
+
+    /**
+     * Retorna métricas agregadas de execução das consultas registradas.
+     *
+     * @return array{
+     *     total_queries: int,
+     *     total_time: float,
+     *     total_time_ms: float,
+     *     named_queries: int,
+     *     positional_queries: int,
+     *     no_param_queries: int,
+     *     queries_by_type: array<string, int>
+     * }
+     */
+    public static function getQueryMetrics(): array
+    {
+        return QueryLog::metrics();
+    }
+
+    /**
+     * Limpa o histórico de consultas e métricas registradas.
+     */
+    public static function clearQueryLog(): void
+    {
+        QueryLog::reset();
     }
 }

@@ -8,9 +8,22 @@ require_once __DIR__ . '/Exceptions/SecurityException.php';
 require_once __DIR__ . '/Support/SqlSandboxValidator.php';
 
 use Demo\Support\SqlSandboxValidator;
+use HeliomarPM\DbPHP\DB;
+
+$debugAtivo = !isset($_GET['debug']) || $_GET['debug'] !== '0';
+if ($debugAtivo) {
+    DB::setDebug(true);
+} else {
+    DB::setDebug(false);
+}
 
 // Inicializa a base de demonstração isolada para esta requisição
 $db = createDemoDatabase();
+
+if ($debugAtivo) {
+    // Limpa queries de setup (seed) para capturar exclusivamente as consultas do cenário
+    DB::clearQueryLog();
+}
 
 // =========================================================================
 // ENDPOINT JSON REATIVO (API REST para Vue.js)
@@ -540,6 +553,9 @@ try {
 }
 
 $memoriaUsada = sprintf('%.2f KB', (memory_get_usage() - $startMem) / 1024);
+$debugLogs = $debugAtivo ? DB::getQueryLog() : [];
+$debugMetrics = $debugAtivo ? DB::getQueryMetrics() : [];
+$debugQueryParam = !$debugAtivo ? '&debug=0' : '';
 
 // Função auxiliar para renderizar a tabela
 if (!function_exists('renderGridTable')) {
@@ -750,6 +766,15 @@ if (!function_exists('renderGridTable')) {
                 <a href="https://linq-php.vercel.app/" target="_blank" class="btn btn-sm btn-brand-gradient px-3">
                     <i class="bi bi-lightning-charge-fill me-1"></i> LinqPHP Demo
                 </a>
+                <?php if ($debugAtivo): ?>
+                    <a href="?cenario=<?= $cenarioAtual ?>&debug=0" class="btn btn-sm btn-outline-success px-3" title="Modo Debug ativo — clique para desativar">
+                        <i class="bi bi-bug-fill me-1"></i> Debug: ON
+                    </a>
+                <?php else: ?>
+                    <a href="?cenario=<?= $cenarioAtual ?>&debug=1" class="btn btn-sm btn-outline-secondary px-3" title="Modo Debug inativo — clique para ativar">
+                        <i class="bi bi-bug me-1"></i> Debug: OFF
+                    </a>
+                <?php endif; ?>
             </div>
         </header>
 
@@ -758,7 +783,7 @@ if (!function_exists('renderGridTable')) {
             <div class="d-flex flex-wrap gap-2 align-items-center">
                 <span class="text-secondary small fw-semibold text-uppercase me-1" style="font-size: 0.75rem; letter-spacing: 0.05em;">Cenários:</span>
                 <?php foreach ($cenarios as $key => $item): ?>
-                    <a href="?cenario=<?= $key ?>" class="scenario-pill <?= ($cenarioAtual === $key) ? 'active' : '' ?>">
+                    <a href="?cenario=<?= $key ?><?= $debugQueryParam ?>" class="scenario-pill <?= ($cenarioAtual === $key) ? 'active' : '' ?>">
                         <span><?= $item['titulo'] ?></span>
                     </a>
                 <?php endforeach; ?>
@@ -1116,6 +1141,109 @@ if (!function_exists('renderGridTable')) {
                 </div>
             </div>
         </div>
+
+        <!-- PAINEL DE DEBUG AGREGADOR & TELEMETRIA -->
+        <?php if ($debugAtivo): ?>
+        <section class="mt-4">
+            <div class="card bg-card border-secondary border-opacity-25 shadow-lg rounded-3 overflow-hidden">
+                <div class="card-header bg-card-subtle border-secondary border-opacity-25 py-3 px-4 d-flex flex-wrap justify-content-between align-items-center gap-2">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="bi bi-bug-fill text-orange fs-5"></i>
+                        <h2 class="h6 mb-0 text-white font-mono fw-bold">Modo Debug & Agregador de Consultas</h2>
+                        <span class="badge bg-success-subtle text-success border border-success border-opacity-25 font-mono" style="font-size: 0.7rem;">ATIVO</span>
+                    </div>
+                    <div class="d-flex flex-wrap align-items-center gap-2">
+                        <span class="badge bg-dark border border-secondary border-opacity-25 text-white font-mono px-2 py-1">
+                            <i class="bi bi-database me-1 text-cyan"></i><?= (int)($debugMetrics['total_queries'] ?? 0) ?> <?= ((int)($debugMetrics['total_queries'] ?? 0) === 1) ? 'consulta' : 'consultas' ?>
+                        </span>
+                        <span class="badge bg-dark border border-secondary border-opacity-25 text-white font-mono px-2 py-1">
+                            <i class="bi bi-stopwatch me-1 text-warning"></i><?= number_format((float)($debugMetrics['total_time_ms'] ?? 0), 3) ?> ms total
+                        </span>
+                        <span class="badge bg-primary-subtle text-cyan border border-primary border-opacity-25 font-mono px-2 py-1">
+                            <?= (int)($debugMetrics['named_queries'] ?? 0) ?> nomeadas
+                        </span>
+                        <span class="badge bg-warning-subtle text-warning border border-warning border-opacity-25 font-mono px-2 py-1">
+                            <?= (int)($debugMetrics['positional_queries'] ?? 0) ?> posicionais
+                        </span>
+                        <button class="btn btn-sm btn-outline-secondary font-mono" type="button" data-bs-toggle="collapse" data-bs-target="#debugLogCollapse" aria-expanded="true" aria-controls="debugLogCollapse">
+                            <i class="bi bi-chevron-down"></i> Detalhes
+                        </button>
+                    </div>
+                </div>
+
+                <div class="collapse show" id="debugLogCollapse">
+                    <div class="card-body p-4 bg-dark">
+                        <?php if (empty($debugLogs)): ?>
+                            <div class="text-secondary small font-mono py-2 text-center">
+                                <i class="bi bi-info-circle me-1"></i> Nenhuma consulta SQL executada neste cenário.
+                            </div>
+                        <?php else: ?>
+                            <div class="d-flex flex-column gap-3">
+                                <?php foreach ($debugLogs as $idx => $record): ?>
+                                    <div class="p-3 rounded-3 border border-secondary border-opacity-25" style="background-color: #0b0f19;">
+                                        <div class="d-flex flex-wrap justify-content-between align-items-center mb-2 gap-2">
+                                            <div class="d-flex align-items-center gap-2">
+                                                <span class="badge bg-secondary font-mono">#<?= $idx + 1 ?></span>
+                                                <span class="badge <?= $record->type === 'query' ? 'bg-primary' : 'bg-success' ?> font-mono text-uppercase">
+                                                    <?= htmlspecialchars($record->type) ?>
+                                                </span>
+                                                <?php if (!$record->hasParams()): ?>
+                                                    <span class="badge bg-secondary-subtle text-secondary font-mono">Sem binds</span>
+                                                <?php elseif ($record->isNamed()): ?>
+                                                    <span class="badge bg-info-subtle text-cyan font-mono"><i class="bi bi-tag-fill me-1"></i>Bind Nomeado</span>
+                                                <?php else: ?>
+                                                    <span class="badge bg-warning-subtle text-warning font-mono"><i class="bi bi-question-lg me-1"></i>Bind Posicional (?)</span>
+                                                <?php endif; ?>
+                                                <?php if ($record->driver !== ''): ?>
+                                                    <span class="badge bg-dark border border-secondary border-opacity-25 text-secondary font-mono">
+                                                        <?= htmlspecialchars(strtoupper($record->driver)) ?>
+                                                    </span>
+                                                <?php endif; ?>
+                                            </div>
+                                            <div class="d-flex align-items-center gap-2 font-mono small">
+                                                <span class="text-warning">
+                                                    <i class="bi bi-clock me-1"></i><?= number_format($record->elapsedTime * 1000, 3) ?> ms
+                                                </span>
+                                                <span class="text-secondary">|</span>
+                                                <span class="text-info">
+                                                    <?= $record->affectedRows ?> <?= $record->type === 'query' ? 'linhas' : 'afetadas' ?>
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        <pre class="mb-2 p-2 rounded bg-black border border-secondary border-opacity-10"><code class="language-sql font-mono"><?= htmlspecialchars(trim($record->sql)) ?></code></pre>
+
+                                        <?php if ($record->hasParams()): ?>
+                                            <div class="bg-card-subtle p-2 rounded border border-secondary border-opacity-10 d-flex flex-wrap gap-2 align-items-center small font-mono">
+                                                <span class="text-secondary me-1">Parâmetros:</span>
+                                                <?php foreach ($record->params as $k => $v): ?>
+                                                    <span class="badge bg-dark border border-secondary border-opacity-25 text-white">
+                                                        <span class="text-cyan"><?= htmlspecialchars((string)$k) ?></span>:
+                                                        <span class="text-warning"><?= htmlspecialchars(is_scalar($v) ? (string)$v : (string)json_encode($v)) ?></span>
+                                                    </span>
+                                                <?php endforeach; ?>
+                                            </div>
+                                        <?php endif; ?>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </div>
+        </section>
+        <?php else: ?>
+        <section class="mt-4">
+            <div class="p-3 bg-card border border-secondary border-opacity-25 rounded-3 d-flex justify-content-between align-items-center">
+                <span class="text-secondary small font-mono">
+                    <i class="bi bi-bug me-1"></i> Modo Debug desativado (overhead zero).
+                </span>
+                <a href="?cenario=<?= $cenarioAtual ?>&debug=1" class="btn btn-sm btn-outline-success font-mono">
+                    <i class="bi bi-power me-1"></i> Ativar Modo Debug
+                </a>
+            </div>
+        </section>
+        <?php endif; ?>
 
         <!-- FOOTER -->
         <footer class="text-center text-secondary small mt-5 pt-4 border-top border-secondary border-opacity-25">

@@ -18,7 +18,8 @@ final readonly class Config
         public ?string $password = "",
         public string $charset = "utf8mb4",
         public string $collation = "utf8mb4_unicode_ci",
-        public array $options = []
+        public array $options = [],
+        public bool $debug = false
     ) {}
 
     /**
@@ -37,14 +38,15 @@ final readonly class Config
             password: isset($data["password"]) ? (string)$data["password"] : (isset($data["pass"]) ? (string)$data["pass"] : null),
             charset: (string)($data["charset"] ?? "utf8mb4"),
             collation: (string)($data["collation"] ?? "utf8mb4_unicode_ci"),
-            options: (array)($data["options"] ?? [])
+            options: (array)($data["options"] ?? []),
+            debug: (bool)($data["debug"] ?? false)
         );
     }
 
     /**
      * Cria configuração simplificada para SQLite (memória ou arquivo).
      */
-    public static function forSqlite(string $database = ":memory:"): self
+    public static function forSqlite(string $database = ":memory:", bool $debug = false): self
     {
         return new self(
             driver: "pdo",
@@ -53,7 +55,8 @@ final readonly class Config
             database: $database,
             username: null,
             password: null,
-            charset: "utf8"
+            charset: "utf8",
+            debug: $debug
         );
     }
 
@@ -66,7 +69,8 @@ final readonly class Config
         int $port = 3306,
         string $username = "root",
         string $password = "",
-        string $charset = "utf8mb4"
+        string $charset = "utf8mb4",
+        bool $debug = false
     ): self {
         return new self(
             driver: "pdo",
@@ -75,7 +79,27 @@ final readonly class Config
             database: $database,
             username: $username,
             password: $password,
-            charset: $charset
+            charset: $charset,
+            debug: $debug
+        );
+    }
+
+    /**
+     * Retorna uma nova instância de configuração com o modo debug alterado.
+     */
+    public function withDebug(bool $debug = true): self
+    {
+        return new self(
+            driver: $this->driver,
+            host: $this->host,
+            port: $this->port,
+            database: $this->database,
+            username: $this->username,
+            password: $this->password,
+            charset: $this->charset,
+            collation: $this->collation,
+            options: $this->options,
+            debug: $debug
         );
     }
 }

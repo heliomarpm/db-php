@@ -57,6 +57,7 @@ final class MysqliDriver extends AbstractDriver
             }
 
             $elapsedTime = microtime(true) - $startTime;
+            $this->logQuery($sql, $params, $elapsedTime, "query", count($rows));
 
             return new QueryResult(
                 rows: $rows,
@@ -71,6 +72,7 @@ final class MysqliDriver extends AbstractDriver
     public function execute(string $sql, array $params = []): int
     {
         $this->assertConnected();
+        $startTime = microtime(true);
 
         [$resolvedSql, $resolvedParams] = $this->resolveNamedParameters($sql, $params);
 
@@ -84,6 +86,9 @@ final class MysqliDriver extends AbstractDriver
                 $this->conn->query($sql);
                 $this->affectedRows = (int)$this->conn->affected_rows;
             }
+
+            $elapsedTime = microtime(true) - $startTime;
+            $this->logQuery($sql, $params, $elapsedTime, "execute", $this->affectedRows);
 
             return $this->affectedRows;
         } catch (mysqli_sql_exception $e) {

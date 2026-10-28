@@ -66,4 +66,26 @@ final class ConfigTest extends TestCase
         $this->assertSame("custom_user", $config->username);
         $this->assertSame("custom_pass", $config->password);
     }
+
+    public function testDebugFlagAndWithDebug(): void
+    {
+        $default = new Config();
+        $this->assertFalse($default->debug);
+
+        $fromArray = Config::fromArray(["debug" => true]);
+        $this->assertTrue($fromArray->debug);
+
+        $sqlite = Config::forSqlite(":memory:", debug: true);
+        $this->assertTrue($sqlite->debug);
+
+        $mysql = Config::forMysql("test_db", debug: true);
+        $this->assertTrue($mysql->debug);
+
+        $cloned = $default->withDebug(true);
+        $this->assertTrue($cloned->debug);
+        $this->assertFalse($default->debug);
+
+        $disabled = $cloned->withDebug(false);
+        $this->assertFalse($disabled->debug);
+    }
 }
