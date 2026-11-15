@@ -373,9 +373,10 @@ Se precisar de ajuda ou encontrou um problema, consulte o [Suporte](https://gith
 
 Obrigado a todos que já contribuíram:
 
-[![Contribuidores](https://contrib.nn.ci/api?repo=heliomarpm/db-php&no_bot=true)](https://github.com/heliomarpm/db-php/graphs/contributors)
+[![Contribuidores](https://contrib.rocks/image?repo=heliomarpm/db-php)](https://github.com/heliomarpm/db-php/graphs/contributors)
 
-###### Criado com [contrib.nn](https://contrib.nn.ci/?repo=heliomarpm/db-php&no_bot=true)
+###### Criado com [contrib.rocks](https://contrib.rocks/image?repo=heliomarpm/db-php)
+
 
 ## 💵 Apoie o Projeto
 
