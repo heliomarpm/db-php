@@ -522,4 +522,58 @@ final class MysqliDriverTest extends TestCase
             $customDriver->close();
         }
     }
+
+    public function testCursorStreamingWithAndWithoutParams(): void
+    {
+        $this->assertNotNull($this->driver);
+
+        for ($i = 1; $i <= 4; $i++) {
+            $this->driver->execute(
+                "INSERT INTO test_users (name, email, active) VALUES (?, ?, ?)",
+                ["Stream {$i}", "stream{$i}@test.com", 1]
+            );
+        }
+
+        // 1. Sem parâmetros + interrupção antecipada
+        $namesNoParam = [];
+        foreach ($this->driver->cursor("SELECT name FROM test_users ORDER BY id ASC") as $row) {
+            $namesNoParam[] = $row["name"];
+            if (count($namesNoParam) === 2) {
+                break;
+            }
+        }
+        $this->assertSame(["Stream 1", "Stream 2"], $namesNoParam);
+
+        // 2. Com parâmetros nomeados
+        $namesParam = [];
+        foreach ($this->driver->cursor("SELECT name FROM test_users WHERE active = :active ORDER BY id ASC", ["active" => 1]) as $row) {
+            $namesParam[] = $row["name"];
+        }
+        $this->assertCount(4, $namesParam);
+    }
+
+    public function testStatementCacheReuseAndCountAffectedIsolation(): void
+    {
+        $this->assertNotNull($this->driver);
+        $cfg = $this->driver->getConfig()->withStatementCacheSize(4);
+
+        $cachedDriver = new MysqliDriver($cfg);
+
+        try {
+            $cachedDriver->execute("CREATE TEMPORARY TABLE test_cached (id INT AUTO_INCREMENT PRIMARY KEY, label VARCHAR(50))");
+            for ($i = 1; $i <= 5; $i++) {
+                $affected = $cachedDriver->execute(
+                    "INSERT INTO test_cached (label) VALUES (:label)",
+                    ["label" => "Label {$i}"]
+                );
+                $this->assertSame(1, $affected);
+            }
+
+            $res = $cachedDriver->query("SELECT * FROM test_cached WHERE label = :label", ["label" => "Label 3"]);
+            $this->assertSame(1, $res->count);
+            $this->assertSame(1, $cachedDriver->countAffected());
+        } finally {
+            $cachedDriver->close();
+        }
+    }
 }

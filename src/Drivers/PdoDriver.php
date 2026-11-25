@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace HeliomarPM\DbPHP\Drivers;
 
+use Generator;
 use HeliomarPM\DbPHP\Config;
 use HeliomarPM\DbPHP\Exceptions\ConnectionException;
 use HeliomarPM\DbPHP\Exceptions\QueryException;
-use HeliomarPM\DbPHP\Results\QueryResult;
 use PDO;
 use PDOException;
 use PDOStatement;
@@ -15,6 +15,11 @@ use PDOStatement;
 final class PdoDriver extends AbstractDriver
 {
     private ?PDO $pdo;
+
+    /**
+     * @var array<string, PDOStatement>
+     */
+    private array $statementCache = [];
 
     public function __construct(
         Config $config,
@@ -30,53 +35,40 @@ final class PdoDriver extends AbstractDriver
         $this->connect();
     }
 
-    public function query(string $sql, array $params = []): QueryResult
+    /**
+     * @return Generator<int, array<string, mixed>, mixed, void>
+     */
+    public function cursor(string $sql, array $params = []): Generator
     {
         $this->assertConnected();
-        $startTime = microtime(true);
+        $startNs = hrtime(true);
 
-        [$resolvedSql, $resolvedParams] = $this->resolveNamedParameters($sql, $params);
+        [$resolvedSql, $resolvedParams] = self::resolveNamedParameters($sql, $params);
+        $yielded = 0;
 
         try {
-            $stmt = $this->prepareStatement($resolvedSql, $resolvedParams);
+            $stmt = $this->prepareStatement($resolvedSql, $resolvedParams, cacheable: false);
             $stmt->execute();
 
-            /** @var array<int, array<string, mixed>> $rows */
-            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            $elapsedTime = microtime(true) - $startTime;
-
-            $this->affectedRows = $stmt->rowCount();
-            $this->logQuery($sql, $params, $elapsedTime, "query", count($rows));
-
-            return new QueryResult(
-                rows: $rows,
-                count: count($rows),
-                elapsedTime: $elapsedTime
-            );
+            try {
+                while (($row = $stmt->fetch(PDO::FETCH_ASSOC)) !== false) {
+                    /** @var array<string, mixed> $row */
+                    $yielded++;
+                    yield $row;
+                }
+            } finally {
+                $stmt->closeCursor();
+                $elapsedTime = (hrtime(true) - $startNs) / 1e9;
+                $this->logQuery($sql, $params, $elapsedTime, "cursor", $yielded);
+            }
         } catch (PDOException $e) {
             throw new QueryException($e->getMessage(), $sql, $params, $e->getCode(), $e);
         }
     }
 
-    public function execute(string $sql, array $params = []): int
+    public function clearStatementCache(): void
     {
-        $this->assertConnected();
-        $startTime = microtime(true);
-
-        [$resolvedSql, $resolvedParams] = $this->resolveNamedParameters($sql, $params);
-
-        try {
-            $stmt = $this->prepareStatement($resolvedSql, $resolvedParams);
-            $stmt->execute();
-
-            $elapsedTime = microtime(true) - $startTime;
-            $this->affectedRows = $stmt->rowCount();
-            $this->logQuery($sql, $params, $elapsedTime, "execute", $this->affectedRows);
-
-            return $this->affectedRows;
-        } catch (PDOException $e) {
-            throw new QueryException($e->getMessage(), $sql, $params, $e->getCode(), $e);
-        }
+        $this->statementCache = [];
     }
 
     public function inTransaction(): bool
@@ -111,8 +103,10 @@ final class PdoDriver extends AbstractDriver
 
     public function close(): void
     {
-        if ($this->pdo !== null) {
-            if ($this->transactionLevel > 0 || $this->pdo->inTransaction()) {
+        $pdo = $this->pdo;
+        if ($pdo !== null) {
+            $this->clearStatementCache();
+            if ($this->transactionLevel > 0 || $pdo->inTransaction()) {
                 $this->doRollback();
                 $this->transactionLevel = 0;
             }
@@ -124,6 +118,58 @@ final class PdoDriver extends AbstractDriver
     {
         $this->assertConnected();
         return $this->pdo;
+    }
+
+    /**
+     * @param array<int|string, mixed> $resolvedParams
+     * @param array<int|string, mixed> $originalParams
+     * @return array<int, array<string, mixed>>
+     */
+    protected function doQuery(
+        string $resolvedSql,
+        array $resolvedParams,
+        string $originalSql,
+        array $originalParams
+    ): array {
+        try {
+            $stmt = $this->prepareStatement($resolvedSql, $resolvedParams);
+            try {
+                $stmt->execute();
+
+                /** @var array<int, array<string, mixed>> $rows */
+                $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+                return $rows;
+            } finally {
+                $stmt->closeCursor();
+            }
+        } catch (PDOException $e) {
+            throw new QueryException($e->getMessage(), $originalSql, $originalParams, $e->getCode(), $e);
+        }
+    }
+
+    /**
+     * @param array<int|string, mixed> $resolvedParams
+     * @param array<int|string, mixed> $originalParams
+     */
+    protected function doExecute(
+        string $resolvedSql,
+        array $resolvedParams,
+        string $originalSql,
+        array $originalParams
+    ): int {
+        try {
+            $stmt = $this->prepareStatement($resolvedSql, $resolvedParams);
+            try {
+                $stmt->execute();
+
+                return $stmt->rowCount();
+            } finally {
+                $stmt->closeCursor();
+            }
+        } catch (PDOException $e) {
+            throw new QueryException($e->getMessage(), $originalSql, $originalParams, $e->getCode(), $e);
+        }
     }
 
     /**
@@ -208,10 +254,10 @@ final class PdoDriver extends AbstractDriver
     /**
      * @param array<int|string, mixed> $params
      */
-    private function prepareStatement(string $sql, array $params): PDOStatement
+    private function prepareStatement(string $sql, array $params, bool $cacheable = true): PDOStatement
     {
         $this->assertConnected();
-        $stmt = $this->pdo->prepare($sql);
+        $stmt = $this->getPreparedStatement($sql, $cacheable);
 
         foreach ($params as $key => $value) {
             $paramType = match (true) {
@@ -226,5 +272,29 @@ final class PdoDriver extends AbstractDriver
         }
 
         return $stmt;
+    }
+
+    private function getPreparedStatement(string $sql, bool $cacheable = true): PDOStatement
+    {
+        $this->assertConnected();
+
+        if ($cacheable && $this->config->statementCacheSize > 0) {
+            if (isset($this->statementCache[$sql])) {
+                $stmt = $this->statementCache[$sql];
+                unset($this->statementCache[$sql]);
+                $this->statementCache[$sql] = $stmt;
+                return $stmt;
+            }
+
+            $stmt = $this->pdo->prepare($sql);
+            if (count($this->statementCache) >= $this->config->statementCacheSize) {
+                array_shift($this->statementCache);
+            }
+            $this->statementCache[$sql] = $stmt;
+
+            return $stmt;
+        }
+
+        return $this->pdo->prepare($sql);
     }
 }

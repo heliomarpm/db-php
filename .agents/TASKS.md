@@ -1,7 +1,7 @@
 # Backlog do Projeto: heliomarpm/db-php
 
 > **Meta:** Excelência em performance de execução, código limpo, manutenibilidade e ergonomia da biblioteca db-php (v1.2+)\
-> **Status:** em andamento | **Progresso:** 26/32 (81%) | **WIP:** 0/2 | **Atualizado em:** 2026-11-24
+> **Status:** em andamento | **Progresso:** 30/32 (93%) | **WIP:** 0/2 | **Atualizado em:** 2026-11-25
 
 ## Em progresso
 
@@ -15,22 +15,7 @@
 
 ### Média Prioridade (Horizonte 2: Consolidação & Refatoração Tática)
 
-- [ ] **T-027 · P1 · Implementar cache de templates SQL nomeados e cache LRU de Prepared Statements**
-  - Origem: `code-review` | Dependências: `T-023`
-  - Referências: [AbstractDriver.php](../src/Drivers/AbstractDriver.php#L37-L88), [PdoDriver.php](../src/Drivers/PdoDriver.php#L188-L206), [MysqliDriver.php](../src/Drivers/MysqliDriver.php#L191-L216), [Config.php](../src/Config.php)
-  - Critérios de aceite (DoD): Adicionar fast-path quando o SQL não contiver `:` e cache estático limitado (FIFO/LRU) em `resolveNamedParameters()` evitando regex repetida para o mesmo template SQL, além de cache LRU opcional por conexão para reutilização de `PDOStatement`/`mysqli_stmt` em execuções repetidas (com limpeza em `close()`), validado por testes unitários.
-- [ ] **T-028 · P1 · Adicionar leitura em streaming via cursor() e teto de memória no QueryLog**
-  - Origem: `code-review` | Dependências: nenhuma
-  - Referências: [DriverInterface.php](../src/Contracts/DriverInterface.php), [DB.php](../src/DB.php), [PdoDriver.php](../src/Drivers/PdoDriver.php), [MysqliDriver.php](../src/Drivers/MysqliDriver.php), [QueryLog.php](../src/Support/QueryLog.php), [AbstractDriver.php](../src/Drivers/AbstractDriver.php#L124-L143)
-  - Critérios de aceite (DoD): Implementar `cursor(string $sql, array $params = []): Generator` em `DriverInterface`, drivers e fachada `DB` lendo linha a linha com memória constante $O(1)$ e fechamento garantido em `finally`; adicionar limite configurável (`maxRecords`) em `QueryLog` e preencher `QueryRecord::$connection` com o nome da conexão ativa.
-- [ ] **T-029 · P2 · Unificar ciclo de execução em AbstractDriver com hrtime(true) e isolar countAffected()**
-  - Origem: `code-review` | Dependências: `T-027`
-  - Referências: [AbstractDriver.php](../src/Drivers/AbstractDriver.php), [PdoDriver.php](../src/Drivers/PdoDriver.php#L33-L80), [MysqliDriver.php](../src/Drivers/MysqliDriver.php#L36-L97), [QueryResult.php](../src/Results/QueryResult.php#L58-L65)
-  - Critérios de aceite (DoD): Extrair Template Methods em `AbstractDriver` centralizando medição monotônica via `hrtime(true)`, resolução de parâmetros, registro no `QueryLog` e tratamento de exceções; garantir que `query()` não sobrescreva `$this->affectedRows` da última operação `execute()` e remover argumentos `count:` redundantes ao instanciar `QueryResult`.
-- [ ] **T-030 · P2 · Padronizar regras do Pint (aspas duplas e strict_types), composer.json e documentação de DI**
-  - Origem: `code-review` | Dependências: nenhuma
-  - Referências: [pint.json](../pint.json), [SPEC.md](./specs/SPEC.md#L19-L21), [composer.json](../composer.json), [demo/index.php](../demo/index.php#L753), [README.md](../README.md)
-  - Critérios de aceite (DoD): Habilitar `"declare_strict_types": true` em `pint.json` e uniformizar aspas duplas em `QueryResult.php`, `PaginatedResult.php` e `QueryResultTest.php`; declarar `"ext-json": "*"` em `require` e `ext-pdo`/`ext-mysqli` em `suggest`, corrigir espaço na descrição do `composer.json`, atualizar badge de versão em `demo/index.php` e documentar Injeção de Dependência (`DriverInterface`) no `README.md`.
+*(Todas as tarefas de Média Prioridade foram concluídas)*
 
 ### Baixa Prioridade (Horizonte 3: Polimento & Expansão)
 
@@ -45,6 +30,14 @@
 
 ## Concluídas recentemente
 
+- [x] **T-030 · P2 · Padronizar regras do Pint (aspas duplas e strict_types), composer.json e documentação de DI** (2026-11-25)
+  - Evidência: Habilitado `"declare_strict_types": true` em `pint.json`, padronizadas aspas duplas em `QueryResult.php` e `PaginatedResult.php`, corrigida descrição e declaradas `ext-json`, `ext-pdo` e `ext-mysqli` em `composer.json`, atualizada badge `v1.2.0` em `demo/index.php` e documentada Injeção de Dependência (`DriverInterface`) + `DB::cursor()` no `README.md`.
+- [x] **T-029 · P2 · Unificar ciclo de execução em AbstractDriver com hrtime(true) e isolar countAffected()** (2026-11-25)
+  - Evidência: Extraídos Template Methods `doQuery()` e `doExecute()` em `AbstractDriver` com medição monotônica via `hrtime(true)` (também aplicado em `PaginatesQueries`), removida sobrescrita de `$affectedRows` em `query()` e removido parâmetro `count:` redundante em `QueryResult`. Validado por testes de isolamento em `PdoDriverTest` e `MysqliDriverTest`.
+- [x] **T-028 · P1 · Adicionar leitura em streaming via cursor() e teto de memória no QueryLog** (2026-11-25)
+  - Evidência: Implementado `cursor(): Generator` em `DriverInterface`, `PdoDriver`, `MysqliDriver` (suportando `MYSQLI_USE_RESULT` e `stmt`) e `DB`, adicionado ring-buffer `QueryLog::setMaxRecords()` (padrão 500) e propagado `$connectionName` em `DB::connect()`/`addConnection()`. Coberto em `DBTest`, `PdoDriverTest`, `MysqliDriverTest` e `QueryLogTest`.
+- [x] **T-027 · P1 · Implementar cache de templates SQL nomeados e cache LRU de Prepared Statements** (2026-11-25)
+  - Evidência: Adicionado fast-path sem `:` e cache LRU estático (até 256 templates) em `AbstractDriver::resolveNamedParameters()`, além de `Config::$statementCacheSize` + `withStatementCacheSize()` e cache LRU por conexão em `PdoDriver` e `MysqliDriver` com limpeza em `close()`. `composer check` 100% verde (Pint, PHPStan Nível 8 com 0 erros, PHPUnit 79 testes / 413 asserções).
 - [x] **T-026 · P1 · Expandir cobertura de CI com pdo_mysql, lint de formatação e trava do PHPStan** (2026-11-24)
   - Evidência: Adicionada extensão `pdo_mysql` e step `composer format` em `.github/workflows/ci.yml`, fixada trava `"phpstan/phpstan": "^1.12 || ^2.0"` em `composer.json` e criada suíte de integração `tests/Unit/PdoMysqlDriverTest.php` cobrindo MySQL via PDO (collation, `lastInsertId`, `paginate` e `SAVEPOINT`). `composer check` 100% verde (Pint, PHPStan Nível 8 com 0 erros, PHPUnit 72 testes / 375 asserções).
 - [x] **T-025 · P1 · Aplicar Config::$collation e Config::$options de forma consistente nos drivers** (2026-11-24)

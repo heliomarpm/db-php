@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace HeliomarPM\DbPHP;
 
+use Generator;
 use HeliomarPM\DbPHP\Contracts\DriverInterface;
+use HeliomarPM\DbPHP\Drivers\AbstractDriver;
 use HeliomarPM\DbPHP\Drivers\MysqliDriver;
 use HeliomarPM\DbPHP\Drivers\PdoDriver;
 use HeliomarPM\DbPHP\Exceptions\ConnectionException;
@@ -35,6 +37,8 @@ final class DB
             default => throw new InvalidArgumentException("Driver não suportado: {$configObj->driver}"),
         };
 
+        $driver->setConnectionName($name);
+
         self::$connections[$name] = $driver;
 
         return $driver;
@@ -53,6 +57,9 @@ final class DB
 
     public static function addConnection(string $name, DriverInterface $driver): void
     {
+        if ($driver instanceof AbstractDriver) {
+            $driver->setConnectionName($name);
+        }
         self::$connections[$name] = $driver;
     }
 
@@ -82,6 +89,17 @@ final class DB
     public static function query(string $sql, array $params = []): QueryResult
     {
         return self::connection()->query($sql, $params);
+    }
+
+    /**
+     * Executa uma consulta de leitura em streaming linha a linha (memória constante O(1)).
+     *
+     * @param array<int|string, mixed> $params
+     * @return Generator<int, array<string, mixed>, mixed, void>
+     */
+    public static function cursor(string $sql, array $params = []): Generator
+    {
+        return self::connection()->cursor($sql, $params);
     }
 
     /**

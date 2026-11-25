@@ -89,6 +89,37 @@ DB::connect(Config::forSqlite(":memory:"), name: "cache");
 DB::setDefaultConnection("cache"); // Direciona DB::query() para a conexão 'cache'
 ```
 
+#### 1.1 Uso via Injeção de Dependência (`DriverInterface`)
+Para arquiteturas desacopladas ou testabilidade em containers DI, injete `DriverInterface` diretamente em repositórios e serviços em vez de depender da fachada estática:
+
+```php
+use HeliomarPM\DbPHP\Config;
+use HeliomarPM\DbPHP\Contracts\DriverInterface;
+use HeliomarPM\DbPHP\Drivers\PdoDriver;
+
+final class ProdutoRepository
+{
+    public function __construct(private readonly DriverInterface $db) {}
+
+    public function listarAtivos(): array
+    {
+        return $this->db->query("SELECT id_produto, nome_produto FROM produtos WHERE estoque > 0")->rows;
+    }
+}
+
+$driver = new PdoDriver(Config::forSqlite(":memory:"));
+$repo = new ProdutoRepository($driver);
+```
+
+#### 1.2 Streaming de Grandes Volumes (`DB::cursor`)
+Quando precisar iterar milhares de linhas mantendo consumo constante de memória ($O(1)$), utilize `cursor()`:
+
+```php
+foreach (DB::cursor("SELECT id_produto, nome_produto FROM produtos ORDER BY id_produto") as $produto) {
+    echo "{$produto['id_produto']}: {$produto['nome_produto']}\n";
+}
+```
+
 ---
 
 ### 2. Consultas (`SELECT`) e Parâmetros Seguros

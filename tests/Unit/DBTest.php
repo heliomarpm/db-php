@@ -113,4 +113,17 @@ final class DBTest extends TestCase
         $res = DB::query("SELECT value FROM settings WHERE key = ?", ["tx.rollback"]);
         $this->assertSame(0, $res->count);
     }
+
+    public function testStaticFacadeCursor(): void
+    {
+        DB::execute("INSERT INTO settings (key, value) VALUES (?, ?)", ["c1", "v1"]);
+        DB::execute("INSERT INTO settings (key, value) VALUES (?, ?)", ["c2", "v2"]);
+
+        $keys = [];
+        foreach (DB::cursor("SELECT key FROM settings ORDER BY key ASC") as $row) {
+            $keys[] = $row["key"];
+        }
+
+        $this->assertSame(["c1", "c2"], $keys);
+    }
 }

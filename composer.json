@@ -1,6 +1,6 @@
 {
   "name": "heliomarpm/db-php",
-  "description": "Uma única API para PDO e MySQLi.Para PHP 8.2+, com suporte universal a parâmetros nomeados, paginação, telemetria nativa e zero dependências.",
+  "description": "Uma única API para PDO e MySQLi. Para PHP 8.2+, com suporte universal a parâmetros nomeados, paginação, telemetria nativa e zero dependências.",
   "type": "library",
   "license": "MIT",
   "authors": [
@@ -49,11 +49,14 @@
     ]
   },
   "suggest": {
+    "ext-pdo": "Necessário para utilizar o PdoDriver (SQLite/MySQL)",
+    "ext-mysqli": "Necessário para utilizar o MysqliDriver (MySQL nativo)",
     "heliomarpm/linq-php": "Permite encadear operações LINQ em memória a partir dos resultados de queries via ->linq()"
   },
   "minimum-stability": "stable",
   "require": {
-    "php": ">=8.2"
+    "php": ">=8.2",
+    "ext-json": "*"
   },
   "require-dev": {
     "phpunit/phpunit": "^11.0 || ^12.0 || ^13.0",

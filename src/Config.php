@@ -19,7 +19,8 @@ final readonly class Config
         public string $charset = "utf8mb4",
         public string $collation = "utf8mb4_unicode_ci",
         public array $options = [],
-        public bool $debug = false
+        public bool $debug = false,
+        public int $statementCacheSize = 0
     ) {}
 
     /**
@@ -39,7 +40,8 @@ final readonly class Config
             charset: (string)($data["charset"] ?? "utf8mb4"),
             collation: (string)($data["collation"] ?? "utf8mb4_unicode_ci"),
             options: (array)($data["options"] ?? []),
-            debug: (bool)($data["debug"] ?? false)
+            debug: (bool)($data["debug"] ?? false),
+            statementCacheSize: max(0, (int)($data["statement_cache_size"] ?? $data["statementCacheSize"] ?? 0))
         );
     }
 
@@ -99,7 +101,28 @@ final readonly class Config
             charset: $this->charset,
             collation: $this->collation,
             options: $this->options,
-            debug: $debug
+            debug: $debug,
+            statementCacheSize: $this->statementCacheSize
+        );
+    }
+
+    /**
+     * Retorna uma nova instância de configuração com o tamanho do cache LRU de prepared statements alterado.
+     */
+    public function withStatementCacheSize(int $size): self
+    {
+        return new self(
+            driver: $this->driver,
+            host: $this->host,
+            port: $this->port,
+            database: $this->database,
+            username: $this->username,
+            password: $this->password,
+            charset: $this->charset,
+            collation: $this->collation,
+            options: $this->options,
+            debug: $this->debug,
+            statementCacheSize: max(0, $size)
         );
     }
 }

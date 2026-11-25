@@ -518,6 +518,44 @@ CODE,
             return $db->query($customSql);
         },
     ],
+
+    'cursor_streaming' => [
+        'titulo' => 'Streaming com Memória Constante (DB::cursor)',
+        'tag'    => 'STREAMING O(1)',
+        'badge'  => 'bg-info text-dark',
+        'desc'   => 'Itera resultados linha a linha via Generator sem carregar todo o conjunto em memória (ideal para relatórios e exportações).',
+        'codigo' => <<<'CODE'
+// Itera produto a produto em streaming com consumo de memória O(1):
+$itens = [];
+foreach (DB::cursor("
+    SELECT p.id_produto, p.nome_produto, c.nome_categoria, p.preco
+    FROM produtos p
+    INNER JOIN categorias c ON c.id_categoria = p.id_categoria
+    WHERE p.preco >= :min_preco
+    ORDER BY p.preco DESC
+", ['min_preco' => 80.00]) as $linha) {
+    $itens[] = $linha;
+}
+CODE,
+        'run' => function (HeliomarPM\DbPHP\Contracts\DriverInterface $db) {
+            $startNs = hrtime(true);
+            $itens = [];
+            foreach ($db->cursor("
+                SELECT p.id_produto, p.nome_produto, c.nome_categoria, p.preco
+                FROM produtos p
+                INNER JOIN categorias c ON c.id_categoria = p.id_categoria
+                WHERE p.preco >= :min_preco
+                ORDER BY p.preco DESC
+            ", ['min_preco' => 80.00]) as $linha) {
+                $itens[] = $linha;
+            }
+
+            return new HeliomarPM\DbPHP\Results\QueryResult(
+                rows: $itens,
+                elapsedTime: (hrtime(true) - $startNs) / 1e9,
+            );
+        },
+    ],
 ];
 
 // Identifica o cenário ativo
@@ -750,7 +788,7 @@ if (!function_exists('renderGridTable')) {
                         <h1 class="h3 fw-bold mb-0 text-white font-mono">
                             Db<span class="text-orange">PHP</span>
                         </h1>
-                        <span class="badge bg-primary-subtle text-cyan border border-primary border-opacity-25 rounded-pill px-2 py-1 font-mono" style="font-size: 0.72rem;">v1.0.0</span>
+                        <span class="badge bg-primary-subtle text-cyan border border-primary border-opacity-25 rounded-pill px-2 py-1 font-mono" style="font-size: 0.72rem;">v1.2.0</span>
                     </div>
                     <p class="text-secondary small mb-0">Laboratório Interativo & Telemetria em Tempo Real (SQLite In-Memory)</p>
                 </div>
@@ -1184,9 +1222,21 @@ if (!function_exists('renderGridTable')) {
                                         <div class="d-flex flex-wrap justify-content-between align-items-center mb-2 gap-2">
                                             <div class="d-flex align-items-center gap-2">
                                                 <span class="badge bg-secondary font-mono">#<?= $idx + 1 ?></span>
-                                                <span class="badge <?= $record->type === 'query' ? 'bg-primary' : 'bg-success' ?> font-mono text-uppercase">
+                                                <?php
+                                                    $typeBadge = match ($record->type) {
+                                                        'query' => 'bg-primary',
+                                                        'cursor' => 'bg-info text-dark',
+                                                        default => 'bg-success',
+                                                    };
+                                                ?>
+                                                <span class="badge <?= $typeBadge ?> font-mono text-uppercase">
                                                     <?= htmlspecialchars($record->type) ?>
                                                 </span>
+                                                <?php if ($record->connection !== null): ?>
+                                                    <span class="badge bg-dark border border-info border-opacity-25 text-cyan font-mono">
+                                                        <i class="bi bi-plug me-1"></i><?= htmlspecialchars($record->connection) ?>
+                                                    </span>
+                                                <?php endif; ?>
                                                 <?php if (!$record->hasParams()): ?>
                                                     <span class="badge bg-secondary-subtle text-secondary font-mono">Sem binds</span>
                                                 <?php elseif ($record->isNamed()): ?>
@@ -1206,7 +1256,7 @@ if (!function_exists('renderGridTable')) {
                                                 </span>
                                                 <span class="text-secondary">|</span>
                                                 <span class="text-info">
-                                                    <?= $record->affectedRows ?> <?= $record->type === 'query' ? 'linhas' : 'afetadas' ?>
+                                                    <?= $record->affectedRows ?> <?= in_array($record->type, ['query', 'cursor'], true) ? 'linhas' : 'afetadas' ?>
                                                 </span>
                                             </div>
                                         </div>

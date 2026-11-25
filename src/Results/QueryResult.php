@@ -88,10 +88,10 @@ final readonly class QueryResult implements Countable, IteratorAggregate, ArrayA
     public function jsonSerialize(): array
     {
         return [
-            'count'        => $this->count,
-            'elapsed_time' => $this->elapsedTime,
-            'row'          => $this->row,
-            'rows'         => $this->rows,
+            "count"        => $this->count,
+            "elapsed_time" => $this->elapsedTime,
+            "row"          => $this->row,
+            "rows"         => $this->rows,
         ];
     }
 
@@ -111,12 +111,12 @@ final readonly class QueryResult implements Countable, IteratorAggregate, ArrayA
 
     public function offsetSet(mixed $offset, mixed $value): void
     {
-        throw new RuntimeException('QueryResult é imutável.');
+        throw new RuntimeException("QueryResult é imutável.");
     }
 
     public function offsetUnset(mixed $offset): void
     {
-        throw new RuntimeException('QueryResult é imutável.');
+        throw new RuntimeException("QueryResult é imutável.");
     }
 
     /**

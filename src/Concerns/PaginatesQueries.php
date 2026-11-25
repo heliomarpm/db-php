@@ -26,7 +26,7 @@ trait PaginatesQueries
         $validPage = max(1, $page);
         $validPerPage = max(1, $perPage);
         $offset = ($validPage - 1) * $validPerPage;
-        $startTime = microtime(true);
+        $startNs = hrtime(true);
 
         $cleanSql = rtrim(trim($sql), ";");
         $countInnerSql = $this->removeTrailingOrderBy($cleanSql);
@@ -41,7 +41,7 @@ trait PaginatesQueries
                 total: $total,
                 perPage: $validPerPage,
                 currentPage: $validPage,
-                elapsedTime: microtime(true) - $startTime
+                elapsedTime: (hrtime(true) - $startNs) / 1e9
             );
         }
 
@@ -60,7 +60,7 @@ trait PaginatesQueries
         }
 
         $queryResult = $this->query($paginatedSql, $paginatedParams);
-        $elapsedTime = microtime(true) - $startTime;
+        $elapsedTime = (hrtime(true) - $startNs) / 1e9;
 
         return new PaginatedResult(
             items: $queryResult->rows,

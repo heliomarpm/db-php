@@ -24,7 +24,7 @@
       "space": "none"
     },
     "declare_parentheses": true,
-    "declare_strict_types": false,
+    "declare_strict_types": true,
     "simplified_null_return": true,
     "align_multiline_comment": true,
     "braces": false,

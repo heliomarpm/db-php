@@ -8,6 +8,7 @@ use HeliomarPM\DbPHP\Concerns\PaginatesQueries;
 use HeliomarPM\DbPHP\Config;
 use HeliomarPM\DbPHP\Contracts\DriverInterface;
 use HeliomarPM\DbPHP\Exceptions\QueryException;
+use HeliomarPM\DbPHP\Results\QueryResult;
 use HeliomarPM\DbPHP\Support\QueryLog;
 use Throwable;
 
@@ -15,8 +16,16 @@ abstract class AbstractDriver implements DriverInterface
 {
     use PaginatesQueries;
 
+    private const MAX_SQL_TEMPLATE_CACHE = 256;
+
     protected int $affectedRows = 0;
     protected int $transactionLevel = 0;
+    protected ?string $connectionName = null;
+
+    /**
+     * @var array<string, array{0: string, 1: list<string>}>
+     */
+    private static array $namedSqlCache = [];
 
     public function __construct(
         protected readonly Config $config
@@ -27,6 +36,29 @@ abstract class AbstractDriver implements DriverInterface
         $this->close();
     }
 
+    /**
+     * @param array<int|string, mixed> $resolvedParams
+     * @param array<int|string, mixed> $originalParams
+     * @return array<int, array<string, mixed>>
+     */
+    abstract protected function doQuery(
+        string $resolvedSql,
+        array $resolvedParams,
+        string $originalSql,
+        array $originalParams
+    ): array;
+
+    /**
+     * @param array<int|string, mixed> $resolvedParams
+     * @param array<int|string, mixed> $originalParams
+     */
+    abstract protected function doExecute(
+        string $resolvedSql,
+        array $resolvedParams,
+        string $originalSql,
+        array $originalParams
+    ): int;
+
     abstract protected function assertConnected(): void;
 
     abstract protected function doBeginTransaction(): void;
@@ -36,6 +68,11 @@ abstract class AbstractDriver implements DriverInterface
     abstract protected function doRollback(): void;
 
     abstract protected function executeTransactionSql(string $sql): void;
+
+    public static function clearNamedSqlCache(): void
+    {
+        self::$namedSqlCache = [];
+    }
 
     /**
      * Converte parâmetros nomeados em posicionais (?) ignorando literais de texto,
@@ -51,52 +88,116 @@ abstract class AbstractDriver implements DriverInterface
             return [$sql, $params];
         }
 
-        $pattern = '/(
-            \'(?:[^\'\\\\]|\\\\.|\'\')*\'
+        if (!str_contains($sql, ":")) {
+            return [$sql, []];
+        }
+
+        if (isset(self::$namedSqlCache[$sql])) {
+            $cached = self::$namedSqlCache[$sql];
+            unset(self::$namedSqlCache[$sql]);
+            self::$namedSqlCache[$sql] = $cached;
+            [$translatedSql, $keyOrder] = $cached;
+        } else {
+            $pattern = '/(
+                \'(?:[^\'\\\\]|\\\\.|\'\')*\'
+                |
+                "(?:[^"\\\\]|\\\\.|"")*"
+                |
+                `(?:[^`\\\\]|\\\\.|``)*`
+                |
+                (?:--|\#)[^\r\n]*
+                |
+                \/\*[\s\S]*?\*\/
+            )
             |
-            "(?:[^"\\\\]|\\\\.|"")*"
+            (::|:=)
             |
-            `(?:[^`\\\\]|\\\\.|``)*`
-            |
-            (?:--|\#)[^\r\n]*
-            |
-            \/\*[\s\S]*?\*\/
-        )
-        |
-        (::|:=)
-        |
-        (?<!:):([a-zA-Z_][a-zA-Z0-9_]*)
-        /xs';
+            (?<!:):([a-zA-Z_][a-zA-Z0-9_]*)
+            /xs';
+
+            $keyOrder = [];
+            $translatedSql = preg_replace_callback(
+                $pattern,
+                static function (array $matches) use (&$keyOrder): string {
+                    if (!empty($matches[1]) || !empty($matches[2])) {
+                        return $matches[0];
+                    }
+
+                    $keyOrder[] = $matches[3];
+                    return "?";
+                },
+                $sql
+            );
+
+            if ($translatedSql === null) {
+                throw new QueryException("Erro ao processar parâmetros na consulta SQL: " . preg_last_error_msg(), $sql, $params);
+            }
+
+            if (count(self::$namedSqlCache) >= self::MAX_SQL_TEMPLATE_CACHE) {
+                array_shift(self::$namedSqlCache);
+            }
+            self::$namedSqlCache[$sql] = [$translatedSql, $keyOrder];
+        }
 
         $orderedParams = [];
-        $translatedSql = preg_replace_callback(
-            $pattern,
-            static function (array $matches) use ($sql, $params, &$orderedParams): string {
-                if (!empty($matches[1]) || !empty($matches[2])) {
-                    return $matches[0];
-                }
+        foreach ($keyOrder as $key) {
+            if (array_key_exists($key, $params)) {
+                $orderedParams[] = $params[$key];
+                continue;
+            }
+            if (array_key_exists(":" . $key, $params)) {
+                $orderedParams[] = $params[":" . $key];
+                continue;
+            }
 
-                $key = $matches[3];
-                if (array_key_exists($key, $params)) {
-                    $orderedParams[] = $params[$key];
-                    return "?";
-                }
-                if (array_key_exists(":" . $key, $params)) {
-                    $orderedParams[] = $params[":" . $key];
-                    return "?";
-                }
-
-                throw new QueryException("Parâmetro nomeado ':{$key}' não foi informado.", $sql, $params);
-            },
-            $sql
-        );
-
-        if ($translatedSql === null) {
-            throw new QueryException("Erro ao processar parâmetros na consulta SQL: " . preg_last_error_msg(), $sql, $params);
+            throw new QueryException("Parâmetro nomeado ':{$key}' não foi informado.", $sql, $params);
         }
 
         return [$translatedSql, $orderedParams];
     }
+
+    public function query(string $sql, array $params = []): QueryResult
+    {
+        $this->assertConnected();
+        $startNs = hrtime(true);
+
+        [$resolvedSql, $resolvedParams] = self::resolveNamedParameters($sql, $params);
+        $rows = $this->doQuery($resolvedSql, $resolvedParams, $sql, $params);
+
+        $elapsedTime = (hrtime(true) - $startNs) / 1e9;
+        $this->logQuery($sql, $params, $elapsedTime, "query", count($rows));
+
+        return new QueryResult(
+            rows: $rows,
+            elapsedTime: $elapsedTime
+        );
+    }
+
+    public function execute(string $sql, array $params = []): int
+    {
+        $this->assertConnected();
+        $startNs = hrtime(true);
+
+        [$resolvedSql, $resolvedParams] = self::resolveNamedParameters($sql, $params);
+        $this->affectedRows = $this->doExecute($resolvedSql, $resolvedParams, $sql, $params);
+
+        $elapsedTime = (hrtime(true) - $startNs) / 1e9;
+        $this->logQuery($sql, $params, $elapsedTime, "execute", $this->affectedRows);
+
+        return $this->affectedRows;
+    }
+
+    public function setConnectionName(?string $name): void
+    {
+        $this->connectionName = $name;
+    }
+
+    public function getConnectionName(): ?string
+    {
+        return $this->connectionName;
+    }
+
+    public function clearStatementCache(): void {}
 
     public function countAffected(): int
     {
@@ -220,7 +321,8 @@ abstract class AbstractDriver implements DriverInterface
             elapsedTime: $elapsedTime,
             type: $type,
             driver: $this->config->driver,
-            affectedRows: $affectedRows
+            affectedRows: $affectedRows,
+            connection: $this->connectionName
         );
     }
 }

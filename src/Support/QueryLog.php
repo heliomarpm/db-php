@@ -7,6 +7,7 @@ namespace HeliomarPM\DbPHP\Support;
 final class QueryLog
 {
     private static bool $enabled = false;
+    private static int $maxRecords = 500;
 
     /**
      * @var list<QueryRecord>
@@ -34,6 +35,23 @@ final class QueryLog
     }
 
     /**
+     * Define o limite máximo de registros retidos em memória (0 = ilimitado).
+     */
+    public static function setMaxRecords(int $max): void
+    {
+        self::$maxRecords = max(0, $max);
+
+        if (self::$maxRecords > 0 && count(self::$records) > self::$maxRecords) {
+            self::$records = array_slice(self::$records, -self::$maxRecords);
+        }
+    }
+
+    public static function getMaxRecords(): int
+    {
+        return self::$maxRecords;
+    }
+
+    /**
      * @param array<int|string, mixed> $params
      */
     public static function record(
@@ -55,6 +73,10 @@ final class QueryLog
             connection: $connection,
             timestamp: microtime(true)
         );
+
+        if (self::$maxRecords > 0 && count(self::$records) > self::$maxRecords) {
+            array_shift(self::$records);
+        }
     }
 
     /**

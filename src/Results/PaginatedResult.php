@@ -120,18 +120,18 @@ final readonly class PaginatedResult implements Countable, IteratorAggregate, Js
     public function jsonSerialize(): array
     {
         return [
-            'data'         => $this->items,
-            'pagination'   => [
-                'total'        => $this->total,
-                'per_page'     => $this->perPage,
-                'current_page' => $this->currentPage,
-                'last_page'    => $this->lastPage,
-                'from'         => $this->from,
-                'to'           => $this->to,
-                'has_more'     => $this->hasMorePages,
-                'has_previous' => $this->hasPreviousPages,
+            "data"         => $this->items,
+            "pagination"   => [
+                "total"        => $this->total,
+                "per_page"     => $this->perPage,
+                "current_page" => $this->currentPage,
+                "last_page"    => $this->lastPage,
+                "from"         => $this->from,
+                "to"           => $this->to,
+                "has_more"     => $this->hasMorePages,
+                "has_previous" => $this->hasPreviousPages,
             ],
-            'elapsed_time' => $this->elapsedTime,
+            "elapsed_time" => $this->elapsedTime,
         ];
     }
 

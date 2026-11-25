@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace HeliomarPM\DbPHP\Contracts;
 
+use Generator;
 use HeliomarPM\DbPHP\Results\PaginatedResult;
 use HeliomarPM\DbPHP\Results\QueryResult;
 
@@ -15,6 +16,14 @@ interface DriverInterface
      * @param array<int|string, mixed> $params
      */
     public function query(string $sql, array $params = []): QueryResult;
+
+    /**
+     * Executa uma consulta de leitura em streaming linha a linha (memória constante O(1)).
+     *
+     * @param array<int|string, mixed> $params
+     * @return Generator<int, array<string, mixed>, mixed, void>
+     */
+    public function cursor(string $sql, array $params = []): Generator;
 
     /**
      * Executa uma consulta paginada retornando registros e metadados de paginação.

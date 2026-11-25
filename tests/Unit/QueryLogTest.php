@@ -175,4 +175,26 @@ final class QueryLogTest extends TestCase
         $this->assertStringContainsString("COUNT(*)", $logs[0]->sql);
         $this->assertStringContainsString("LIMIT", $logs[1]->sql);
     }
+
+    public function testMaxRecordsLimitAndConnectionNameTracking(): void
+    {
+        $previousLimit = QueryLog::getMaxRecords();
+        QueryLog::setMaxRecords(3);
+
+        try {
+            $driver = DB::connect(Config::forSqlite(":memory:", debug: true), name: "analytics");
+            $driver->execute("CREATE TABLE events (id INTEGER PRIMARY KEY, name TEXT)");
+            $driver->execute("INSERT INTO events (name) VALUES (?)", ["e1"]);
+            $driver->execute("INSERT INTO events (name) VALUES (?)", ["e2"]);
+            $driver->query("SELECT * FROM events");
+
+            $logs = QueryLog::all();
+            $this->assertCount(3, $logs);
+            $this->assertSame("analytics", $logs[0]->connection);
+            $this->assertStringContainsString("e1", (string)json_encode($logs[0]->params));
+            $this->assertStringContainsString("SELECT * FROM events", $logs[2]->sql);
+        } finally {
+            QueryLog::setMaxRecords($previousLimit);
+        }
+    }
 }

@@ -380,4 +380,51 @@ final class PdoDriverTest extends TestCase
             QueryLog::disable();
         }
     }
+
+    public function testCursorStreamingAndEarlyBreak(): void
+    {
+        for ($i = 1; $i <= 5; $i++) {
+            $this->driver->execute(
+                "INSERT INTO users (name, email, active) VALUES (:name, :email, :active)",
+                ["name" => "Cursor {$i}", "email" => "cursor{$i}@test.com", "active" => 1]
+            );
+        }
+
+        $names = [];
+        foreach ($this->driver->cursor("SELECT name FROM users WHERE active = :active ORDER BY id ASC", ["active" => 1]) as $row) {
+            $names[] = $row["name"];
+            if (count($names) === 2) {
+                break;
+            }
+        }
+
+        $this->assertSame(["Cursor 1", "Cursor 2"], $names);
+        // Conexão permanece utilizável após interrupção antecipada do Generator
+        $countRes = $this->driver->query("SELECT COUNT(*) AS total FROM users");
+        $this->assertSame(5, (int)$countRes->row["total"]);
+    }
+
+    public function testStatementCacheReuseAndCountAffectedIsolation(): void
+    {
+        $cachedDriver = new PdoDriver(Config::forSqlite(":memory:")->withStatementCacheSize(4));
+
+        try {
+            $cachedDriver->execute("CREATE TABLE items (id INTEGER PRIMARY KEY AUTOINCREMENT, label TEXT)");
+            for ($i = 1; $i <= 10; $i++) {
+                $affected = $cachedDriver->execute(
+                    "INSERT INTO items (label) VALUES (:label)",
+                    ["label" => "Item {$i}"]
+                );
+                $this->assertSame(1, $affected);
+            }
+
+            $this->assertSame(1, $cachedDriver->countAffected());
+            $res = $cachedDriver->query("SELECT * FROM items WHERE label = :label", ["label" => "Item 5"]);
+            $this->assertSame(1, $res->count);
+            // query() não deve sobrescrever countAffected() da última operação execute()
+            $this->assertSame(1, $cachedDriver->countAffected());
+        } finally {
+            $cachedDriver->close();
+        }
+    }
 }

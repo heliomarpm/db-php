@@ -88,4 +88,24 @@ final class ConfigTest extends TestCase
         $disabled = $cloned->withDebug(false);
         $this->assertFalse($disabled->debug);
     }
+
+    public function testStatementCacheSizeAndWithStatementCacheSize(): void
+    {
+        $default = new Config();
+        $this->assertSame(0, $default->statementCacheSize);
+
+        $fromArray = Config::fromArray(["statement_cache_size" => 32]);
+        $this->assertSame(32, $fromArray->statementCacheSize);
+
+        $negative = Config::fromArray(["statementCacheSize" => -5]);
+        $this->assertSame(0, $negative->statementCacheSize);
+
+        $cached = $default->withStatementCacheSize(64);
+        $this->assertSame(64, $cached->statementCacheSize);
+        $this->assertSame(0, $default->statementCacheSize);
+
+        $withDebug = $cached->withDebug(true);
+        $this->assertTrue($withDebug->debug);
+        $this->assertSame(64, $withDebug->statementCacheSize);
+    }
 }

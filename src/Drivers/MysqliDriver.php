@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace HeliomarPM\DbPHP\Drivers;
 
 use Exception;
+use Generator;
 use HeliomarPM\DbPHP\Config;
 use HeliomarPM\DbPHP\Exceptions\ConnectionException;
 use HeliomarPM\DbPHP\Exceptions\QueryException;
-use HeliomarPM\DbPHP\Results\QueryResult;
 use mysqli;
 use mysqli_result;
 use mysqli_sql_exception;
@@ -17,6 +17,11 @@ use mysqli_stmt;
 final class MysqliDriver extends AbstractDriver
 {
     private ?mysqli $conn;
+
+    /**
+     * @var array<string, mysqli_stmt>
+     */
+    private array $statementCache = [];
 
     public function __construct(
         Config $config,
@@ -33,83 +38,69 @@ final class MysqliDriver extends AbstractDriver
     }
 
 
-    public function query(string $sql, array $params = []): QueryResult
+    /**
+     * @return Generator<int, array<string, mixed>, mixed, void>
+     */
+    public function cursor(string $sql, array $params = []): Generator
     {
         $this->assertConnected();
-        $startTime = microtime(true);
+        $startNs = hrtime(true);
 
-        [$resolvedSql, $resolvedParams] = $this->resolveNamedParameters($sql, $params);
+        [$resolvedSql, $resolvedParams] = self::resolveNamedParameters($sql, $params);
+        $yielded = 0;
 
         try {
             if (!empty($resolvedParams)) {
-                $stmt = $this->prepareStatement($resolvedSql, $resolvedParams);
+                $stmt = $this->prepareStatement($resolvedSql, $resolvedParams, cacheable: false);
+                $res = null;
                 try {
                     $stmt->execute();
                     $res = $stmt->get_result();
                     if ($res instanceof mysqli_result) {
-                        /** @var array<int, array<string, mixed>> $rows */
-                        $rows = $res->fetch_all(MYSQLI_ASSOC);
-                        $res->free();
-                    } else {
-                        $rows = [];
+                        while (is_array($row = $res->fetch_assoc())) {
+                            /** @var array<string, mixed> $row */
+                            $yielded++;
+                            yield $row;
+                        }
                     }
-                    $this->affectedRows = (int)$stmt->affected_rows;
                 } finally {
+                    if ($res instanceof mysqli_result) {
+                        $res->free();
+                    }
                     $stmt->close();
+                    $elapsedTime = (hrtime(true) - $startNs) / 1e9;
+                    $this->logQuery($sql, $params, $elapsedTime, "cursor", $yielded);
                 }
-            } else {
-                $res = $this->conn->query($sql);
-                if ($res instanceof mysqli_result) {
-                    /** @var array<int, array<string, mixed>> $rows */
-                    $rows = $res->fetch_all(MYSQLI_ASSOC);
-                    $res->free();
-                } else {
-                    $rows = [];
-                }
-                $this->affectedRows = (int)$this->conn->affected_rows;
+                return;
             }
 
-            $elapsedTime = microtime(true) - $startTime;
-            $this->logQuery($sql, $params, $elapsedTime, "query", count($rows));
-
-            return new QueryResult(
-                rows: $rows,
-                count: count($rows),
-                elapsedTime: $elapsedTime
-            );
+            $res = $this->conn->query($sql, MYSQLI_USE_RESULT);
+            try {
+                if ($res instanceof mysqli_result) {
+                    while (is_array($row = $res->fetch_assoc())) {
+                        /** @var array<string, mixed> $row */
+                        $yielded++;
+                        yield $row;
+                    }
+                }
+            } finally {
+                if ($res instanceof mysqli_result) {
+                    $res->free();
+                }
+                $elapsedTime = (hrtime(true) - $startNs) / 1e9;
+                $this->logQuery($sql, $params, $elapsedTime, "cursor", $yielded);
+            }
         } catch (mysqli_sql_exception $e) {
             throw new QueryException($e->getMessage(), $sql, $params, $e->getCode(), $e);
         }
     }
 
-    public function execute(string $sql, array $params = []): int
+    public function clearStatementCache(): void
     {
-        $this->assertConnected();
-        $startTime = microtime(true);
-
-        [$resolvedSql, $resolvedParams] = $this->resolveNamedParameters($sql, $params);
-
-        try {
-            if (!empty($resolvedParams)) {
-                $stmt = $this->prepareStatement($resolvedSql, $resolvedParams);
-                try {
-                    $stmt->execute();
-                    $this->affectedRows = (int)$stmt->affected_rows;
-                } finally {
-                    $stmt->close();
-                }
-            } else {
-                $this->conn->query($sql);
-                $this->affectedRows = (int)$this->conn->affected_rows;
-            }
-
-            $elapsedTime = microtime(true) - $startTime;
-            $this->logQuery($sql, $params, $elapsedTime, "execute", $this->affectedRows);
-
-            return $this->affectedRows;
-        } catch (mysqli_sql_exception $e) {
-            throw new QueryException($e->getMessage(), $sql, $params, $e->getCode(), $e);
+        foreach ($this->statementCache as $stmt) {
+            $stmt->close();
         }
+        $this->statementCache = [];
     }
 
     public function lastInsertId(): int|string
@@ -129,6 +120,7 @@ final class MysqliDriver extends AbstractDriver
     {
         $conn = $this->conn;
         if ($conn !== null) {
+            $this->clearStatementCache();
             if ($this->transactionLevel > 0) {
                 $this->doRollback();
                 $this->transactionLevel = 0;
@@ -142,6 +134,96 @@ final class MysqliDriver extends AbstractDriver
     {
         $this->assertConnected();
         return $this->conn;
+    }
+
+    /**
+     * @param array<int|string, mixed> $resolvedParams
+     * @param array<int|string, mixed> $originalParams
+     * @return array<int, array<string, mixed>>
+     */
+    protected function doQuery(
+        string $resolvedSql,
+        array $resolvedParams,
+        string $originalSql,
+        array $originalParams
+    ): array {
+        $this->assertConnected();
+
+        try {
+            if (!empty($resolvedParams)) {
+                $isCached = $this->config->statementCacheSize > 0;
+                $stmt = $this->prepareStatement($resolvedSql, $resolvedParams, $isCached);
+                try {
+                    $stmt->execute();
+                    $res = $stmt->get_result();
+                    if ($res instanceof mysqli_result) {
+                        /** @var array<int, array<string, mixed>> $rows */
+                        $rows = $res->fetch_all(MYSQLI_ASSOC);
+                        $res->free();
+                    } else {
+                        $rows = [];
+                    }
+
+                    return $rows;
+                } finally {
+                    if ($isCached) {
+                        $stmt->free_result();
+                    } else {
+                        $stmt->close();
+                    }
+                }
+            }
+
+            $res = $this->conn->query($originalSql);
+            if ($res instanceof mysqli_result) {
+                /** @var array<int, array<string, mixed>> $rows */
+                $rows = $res->fetch_all(MYSQLI_ASSOC);
+                $res->free();
+            } else {
+                $rows = [];
+            }
+
+            return $rows;
+        } catch (mysqli_sql_exception $e) {
+            throw new QueryException($e->getMessage(), $originalSql, $originalParams, $e->getCode(), $e);
+        }
+    }
+
+    /**
+     * @param array<int|string, mixed> $resolvedParams
+     * @param array<int|string, mixed> $originalParams
+     */
+    protected function doExecute(
+        string $resolvedSql,
+        array $resolvedParams,
+        string $originalSql,
+        array $originalParams
+    ): int {
+        $this->assertConnected();
+
+        try {
+            if (!empty($resolvedParams)) {
+                $isCached = $this->config->statementCacheSize > 0;
+                $stmt = $this->prepareStatement($resolvedSql, $resolvedParams, $isCached);
+                try {
+                    $stmt->execute();
+
+                    return (int)$stmt->affected_rows;
+                } finally {
+                    if ($isCached) {
+                        $stmt->free_result();
+                    } else {
+                        $stmt->close();
+                    }
+                }
+            }
+
+            $this->conn->query($originalSql);
+
+            return (int)$this->conn->affected_rows;
+        } catch (mysqli_sql_exception $e) {
+            throw new QueryException($e->getMessage(), $originalSql, $originalParams, $e->getCode(), $e);
+        }
     }
 
     /**
@@ -220,15 +302,12 @@ final class MysqliDriver extends AbstractDriver
     }
 
     /**
-     * @param array<int, mixed> $params
+     * @param array<int|string, mixed> $params
      */
-    private function prepareStatement(string $sql, array $params): mysqli_stmt
+    private function prepareStatement(string $sql, array $params, bool $cacheable = true): mysqli_stmt
     {
         $this->assertConnected();
-        $stmt = $this->conn->prepare($sql);
-        if ($stmt === false) {
-            throw new QueryException("Erro ao preparar consulta MySQLi", $sql, $params, $this->conn->errno);
-        }
+        $stmt = $this->getPreparedStatement($sql, $cacheable);
 
         $types = "";
         $boundParams = [];
@@ -244,6 +323,42 @@ final class MysqliDriver extends AbstractDriver
 
         if (!empty($boundParams)) {
             $stmt->bind_param($types, ...$boundParams);
+        }
+
+        return $stmt;
+    }
+
+    private function getPreparedStatement(string $sql, bool $cacheable = true): mysqli_stmt
+    {
+        $this->assertConnected();
+
+        if ($cacheable && $this->config->statementCacheSize > 0) {
+            if (isset($this->statementCache[$sql])) {
+                $stmt = $this->statementCache[$sql];
+                unset($this->statementCache[$sql]);
+                $this->statementCache[$sql] = $stmt;
+                $stmt->reset();
+
+                return $stmt;
+            }
+
+            $stmt = $this->conn->prepare($sql);
+            if ($stmt === false) {
+                throw new QueryException("Erro ao preparar consulta MySQLi", $sql, [], $this->conn->errno);
+            }
+
+            if (count($this->statementCache) >= $this->config->statementCacheSize) {
+                $evicted = array_shift($this->statementCache);
+                $evicted->close();
+            }
+            $this->statementCache[$sql] = $stmt;
+
+            return $stmt;
+        }
+
+        $stmt = $this->conn->prepare($sql);
+        if ($stmt === false) {
+            throw new QueryException("Erro ao preparar consulta MySQLi", $sql, [], $this->conn->errno);
         }
 
         return $stmt;
