@@ -5,6 +5,15 @@ Todas as alterações notáveis neste projeto serão documentadas neste arquivo.
 O formato é baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
 
+# [1.2.0](https://github.com/heliomarpm/db-php/compare/v1.1.0...v1.2.0) (2026-11-25)
+
+
+### Features
+
+* **drivers:** ✨ suportar savepoints aninhados, tipos nativos no mysqli e melhorias na paginação ([fcc19c0](https://github.com/heliomarpm/db-php/commit/fcc19c0aec99090c8166747e8a59d58257b14f40))
+* **ergonomics:** ✨ adicionar atalhos row/scalar/column/simplePaginate, expansão IN (:ids), conexão lazy e PostgreSQL ([c0d1238](https://github.com/heliomarpm/db-php/commit/c0d1238b62ea1eb988d06ae3b740529af9fd89c7))
+* **performance:** ⚡ adicionar cache LRU de statements, streaming via cursor e padronização de qualidade ([01d05a6](https://github.com/heliomarpm/db-php/commit/01d05a60bcd16b99ac0fb1dc74d972b32b9d41d7))
+
 # [1.1.0](https://github.com/heliomarpm/db-php/compare/v1.0.0...v1.1.0) (2026-10-28)
 
 
