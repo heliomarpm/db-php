@@ -5,6 +5,13 @@ Todas as alterações notáveis neste projeto serão documentadas neste arquivo.
 O formato é baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
 
+## [1.2.1](https://github.com/heliomarpm/db-php/compare/v1.2.0...v1.2.1) (2026-11-25)
+
+
+### Performance Improvements
+
+* **core:** ⚡ otimizar hot paths nos drivers e paginação e adicionar guia de boas práticas ([fdf1bd2](https://github.com/heliomarpm/db-php/commit/fdf1bd2077f572d0bf4ae4a0d2d274dff66262b0))
+
 # [1.2.0](https://github.com/heliomarpm/db-php/compare/v1.1.0...v1.2.0) (2026-11-25)
 
 
