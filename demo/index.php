@@ -496,29 +496,6 @@ CODE,
             );
         },
     ],
-
-    'playground' => [
-        'titulo' => 'SQL Playground Interativo (Livre)',
-        'tag'    => 'PLAYGROUND',
-        'badge'  => 'bg-dark',
-        'desc'   => 'Digite qualquer instrução SELECT no campo abaixo para consultar a base SQLite em memória ao vivo.',
-        'codigo' => <<<'CODE'
-// A sandbox valida e bloqueia comandos perigosos, stacked queries e RCE:
-SqlSandboxValidator::assertSafe($sqlCustomizado);
-$result = DB::query($sqlCustomizado);
-CODE,
-        'run' => function (HeliomarPM\DbPHP\Contracts\DriverInterface $db) {
-            $customSql = trim($_POST['custom_sql'] ?? $_GET['sql'] ?? "SELECT * FROM produtos WHERE estoque < 20");
-            if (empty($customSql)) {
-                $customSql = "SELECT * FROM produtos WHERE estoque < 20";
-            }
-
-            SqlSandboxValidator::assertSafe($customSql);
-
-            return $db->query($customSql);
-        },
-    ],
-
     'cursor_streaming' => [
         'titulo' => 'Streaming com Memória Constante (DB::cursor)',
         'tag'    => 'STREAMING O(1)',
@@ -556,6 +533,29 @@ CODE,
             );
         },
     ],
+
+    'playground' => [
+        'titulo' => 'SQL Playground Interativo (Livre)',
+        'tag'    => 'PLAYGROUND',
+        'badge'  => 'bg-dark',
+        'desc'   => 'Digite qualquer instrução SELECT no campo abaixo para consultar a base SQLite em memória ao vivo.',
+        'codigo' => <<<'CODE'
+// A sandbox valida e bloqueia comandos perigosos, stacked queries e RCE:
+SqlSandboxValidator::assertSafe($sqlCustomizado);
+$result = DB::query($sqlCustomizado);
+CODE,
+        'run' => function (HeliomarPM\DbPHP\Contracts\DriverInterface $db) {
+            $customSql = trim($_POST['custom_sql'] ?? $_GET['sql'] ?? "SELECT * FROM produtos WHERE estoque < 20");
+            if (empty($customSql)) {
+                $customSql = "SELECT * FROM produtos WHERE estoque < 20";
+            }
+
+            SqlSandboxValidator::assertSafe($customSql);
+
+            return $db->query($customSql);
+        },
+    ],
+
 ];
 
 // Identifica o cenário ativo
@@ -670,6 +670,7 @@ if (!function_exists('renderGridTable')) {
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -679,139 +680,201 @@ if (!function_exists('renderGridTable')) {
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
+        rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
     <style>
-        :root {
-            --brand-cyan: #00A3FF;
-            --brand-orange: #FF7A00;
-            --brand-dark: #0B0F19;
-            --brand-card-bg: #111827;
-            --brand-gradient: linear-gradient(135deg, #00A3FF 0%, #0066FF 40%, #FF7A00 100%);
-        }
-        body {
-            font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-            background-color: #0d1117;
-            color: #333;
-        }
-        .font-mono { font-family: 'JetBrains Mono', monospace; }
-        .text-cyan { color: var(--brand-cyan) !important; }
-        .text-orange { color: var(--brand-orange) !important; }
-        .bg-card { background-color: #161b22; border: 1px solid #30363d; }
-        .bg-card-subtle { background-color: #21262d; }
-        .btn-brand-gradient {
-            background: linear-gradient(135deg, #00A3FF, #FF7A00);
-            color: white;
-            border: none;
-            font-weight: 600;
-        }
-        .btn-brand-gradient:hover {
-            opacity: 0.92;
-            color: white;
-        }
-        .scenario-pill {
-            text-decoration: none;
-            color: #8b949e;
-            background: #161b22;
-            border: 1px solid #30363d;
-            border-radius: 9999px;
-            padding: 0.45rem 0.9rem;
-            font-size: 0.82rem;
-            font-weight: 600;
-            transition: all 0.2s ease;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.4rem;
-        }
-        .scenario-pill:hover {
-            color: #58a6ff;
-            border-color: #58a6ff;
-            background: #21262d;
-        }
-        .scenario-pill.active {
-            color: white;
-            background: linear-gradient(135deg, #00A3FF, #0066FF);
-            border-color: #00A3FF;
-            box-shadow: 0 0 15px rgba(0, 163, 255, 0.4);
-        }
-        .hud-card {
-            background: #161b22;
-            border: 1px solid #30363d;
-            border-radius: 0.75rem;
-            padding: 1rem 1.25rem;
-            height: 100%;
-        }
-        .nav-tabs .nav-link {
-            color: #8b949e;
-            border: none;
-            border-bottom: 2px solid transparent;
-            font-weight: 600;
-        }
-        .nav-tabs .nav-link.active {
-            color: #58a6ff;
-            background: transparent;
-            border-bottom: 2px solid #58a6ff;
-        }
-        pre[class*="language-"] {
-            margin: 0;
-            border-radius: 0.5rem;
-            font-size: 0.85rem;
-        }
-        .table {
-            color: #555;
-            background-color: transparent;
-        }
-        .table-light {
-            background-color: #21262d !important;
-            color: #555 !important;
-        }
-        .table-striped>tbody>tr:nth-of-type(odd)>* {
-            background-color: rgba(255, 255, 255, 0.02);
-            color: #555;
-        }
-        .table-hover>tbody>tr:hover>* {
-            background-color: rgba(0, 163, 255, 0.08);
-            color: #555;
-        }
+    :root {
+        --brand-cyan: #00A3FF;
+        --brand-orange: #FF7A00;
+        --brand-dark: #0B0F19;
+        --brand-card-bg: #111827;
+        --brand-gradient: linear-gradient(135deg, #00A3FF 0%, #0066FF 40%, #FF7A00 100%);
+    }
+
+    body {
+        font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+        background-color: #0d1117;
+        color: #333;
+    }
+
+    .font-mono {
+        font-family: 'JetBrains Mono', monospace;
+    }
+
+    .text-cyan {
+        color: var(--brand-cyan) !important;
+    }
+
+    .text-orange {
+        color: var(--brand-orange) !important;
+    }
+
+    .bg-card {
+        background-color: #161b22;
+        border: 1px solid #30363d;
+    }
+
+    .bg-card-subtle {
+        background-color: #21262d;
+    }
+
+    .btn-brand-gradient {
+        background: linear-gradient(135deg, #00A3FF, #FF7A00);
+        color: white;
+        border: none;
+        font-weight: 600;
+    }
+
+    .btn-brand-gradient:hover {
+        opacity: 0.92;
+        color: white;
+    }
+
+    .scenario-pill {
+        text-decoration: none;
+        color: #8b949e;
+        background: #161b22;
+        border: 1px solid #30363d;
+        border-radius: 9999px;
+        padding: 0.45rem 0.9rem;
+        font-size: 0.82rem;
+        font-weight: 600;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+
+    .scenario-pill:hover {
+        color: #58a6ff;
+        border-color: #58a6ff;
+        background: #21262d;
+    }
+
+    .scenario-pill.active {
+        color: white;
+        background: linear-gradient(135deg, #00A3FF, #0066FF);
+        border-color: #00A3FF;
+        box-shadow: 0 0 15px rgba(0, 163, 255, 0.4);
+    }
+
+    .scenario-pill-playground {
+        color: #ff9f43;
+        background: linear-gradient(135deg, rgba(255, 122, 0, 0.14), rgba(255, 122, 0, 0.04));
+        border-color: rgba(255, 122, 0, 0.55);
+    }
+
+    .scenario-pill-playground:hover {
+        color: #ffffff;
+        border-color: #FF7A00;
+        background: linear-gradient(135deg, rgba(255, 122, 0, 0.35), rgba(255, 122, 0, 0.15));
+        box-shadow: 0 0 14px rgba(255, 122, 0, 0.3);
+    }
+
+    .scenario-pill-playground.active {
+        color: #ffffff;
+        background: linear-gradient(135deg, #FF7A00, #E05A00);
+        border-color: #FF7A00;
+        box-shadow: 0 0 16px rgba(255, 122, 0, 0.5);
+    }
+
+    .hud-card {
+        background: #161b22;
+        border: 1px solid #30363d;
+        border-radius: 0.75rem;
+        padding: 1rem 1.25rem;
+        height: 100%;
+    }
+
+    .nav-tabs .nav-link {
+        color: #8b949e;
+        border: none;
+        border-bottom: 2px solid transparent;
+        font-weight: 600;
+    }
+
+    .nav-tabs .nav-link.active {
+        color: #58a6ff;
+        background: transparent;
+        border-bottom: 2px solid #58a6ff;
+    }
+
+    pre[class*="language-"] {
+        margin: 0;
+        border-radius: 0.5rem;
+        font-size: 0.85rem;
+    }
+
+    .table {
+        color: #555;
+        background-color: transparent;
+    }
+
+    .table-light {
+        background-color: #21262d !important;
+        color: #555 !important;
+    }
+
+    .table-striped>tbody>tr:nth-of-type(odd)>* {
+        background-color: rgba(255, 255, 255, 0.02);
+        color: #555;
+    }
+
+    .table-hover>tbody>tr:hover>* {
+        background-color: rgba(0, 163, 255, 0.08);
+        color: #555;
+    }
     </style>
 </head>
+
 <body class="py-4">
     <div class="container-xl">
         <!-- HEADER -->
-        <header class="d-flex flex-wrap align-items-center justify-content-between pb-3 mb-4 border-bottom border-secondary border-opacity-25">
+        <header
+            class="d-flex flex-wrap align-items-center justify-content-between pb-3 mb-4 border-bottom border-secondary border-opacity-25">
             <div class="d-flex align-items-center gap-3">
                 <a href="https://github.com/heliomarpm/db-php" target="_blank" class="text-decoration-none">
-                    <img src="./logo.png" alt="DbPHP" width="54" height="54" class="rounded-3 shadow-sm" onerror="this.style.display='none'">
+                    <img src="./logo.png" alt="DbPHP" width="54" height="54" class="rounded-3 shadow-sm"
+                        onerror="this.style.display='none'">
                 </a>
                 <div>
                     <div class="d-flex align-items-center gap-2">
                         <h1 class="h3 fw-bold mb-0 text-white font-mono">
                             Db<span class="text-orange">PHP</span>
                         </h1>
-                        <span class="badge bg-primary-subtle text-cyan border border-primary border-opacity-25 rounded-pill px-2 py-1 font-mono" style="font-size: 0.72rem;">v1.2.0</span>
+                        <span
+                            class="badge bg-primary-subtle text-cyan border border-primary border-opacity-25 rounded-pill px-2 py-1 font-mono"
+                            style="font-size: 0.72rem;">v1.2.0</span>
                     </div>
-                    <p class="text-secondary small mb-0">Laboratório Interativo & Telemetria em Tempo Real (SQLite In-Memory)</p>
+                    <p class="text-secondary small mb-0">Laboratório Interativo & Telemetria em Tempo Real (SQLite
+                        In-Memory)</p>
                 </div>
             </div>
 
             <div class="d-flex align-items-center gap-2 mt-3 mt-md-0">
-                <a href="https://github.com/heliomarpm/db-php" target="_blank" class="btn btn-sm btn-outline-secondary text-white px-3">
+                <a href="https://github.com/heliomarpm/db-php" target="_blank"
+                    class="btn btn-sm btn-outline-secondary text-white px-3">
                     <i class="bi bi-github me-1"></i> GitHub
                 </a>
-                <a href="https://packagist.org/packages/heliomarpm/db-php" target="_blank" class="btn btn-sm btn-outline-warning px-3">
+                <a href="https://packagist.org/packages/heliomarpm/db-php" target="_blank"
+                    class="btn btn-sm btn-outline-warning px-3">
                     <i class="bi bi-box-seam me-1"></i> Packagist
                 </a>
                 <a href="https://linq-php.vercel.app/" target="_blank" class="btn btn-sm btn-brand-gradient px-3">
                     <i class="bi bi-lightning-charge-fill me-1"></i> LinqPHP Demo
                 </a>
                 <?php if ($debugAtivo): ?>
-                    <a href="?cenario=<?= $cenarioAtual ?>&debug=0" class="btn btn-sm btn-outline-success px-3" title="Modo Debug ativo — clique para desativar">
-                        <i class="bi bi-bug-fill me-1"></i> Debug: ON
-                    </a>
+                <a href="?cenario=<?= $cenarioAtual ?>&debug=0" class="btn btn-sm btn-outline-success px-3"
+                    title="Modo Debug ativo — clique para desativar">
+                    <i class="bi bi-bug-fill me-1"></i> Debug: ON
+                </a>
                 <?php else: ?>
-                    <a href="?cenario=<?= $cenarioAtual ?>&debug=1" class="btn btn-sm btn-outline-secondary px-3" title="Modo Debug inativo — clique para ativar">
-                        <i class="bi bi-bug me-1"></i> Debug: OFF
-                    </a>
+                <a href="?cenario=<?= $cenarioAtual ?>&debug=1" class="btn btn-sm btn-outline-secondary px-3"
+                    title="Modo Debug inativo — clique para ativar">
+                    <i class="bi bi-bug me-1"></i> Debug: OFF
+                </a>
                 <?php endif; ?>
             </div>
         </header>
@@ -819,12 +882,24 @@ if (!function_exists('renderGridTable')) {
         <!-- SELETOR DE CENÁRIOS -->
         <section class="mb-4">
             <div class="d-flex flex-wrap gap-2 align-items-center">
-                <span class="text-secondary small fw-semibold text-uppercase me-1" style="font-size: 0.75rem; letter-spacing: 0.05em;">Cenários:</span>
+                <span class="text-secondary small fw-semibold text-uppercase me-1"
+                    style="font-size: 0.75rem; letter-spacing: 0.05em;">Cenários:</span>
                 <?php foreach ($cenarios as $key => $item): ?>
-                    <a href="?cenario=<?= $key ?><?= $debugQueryParam ?>" class="scenario-pill <?= ($cenarioAtual === $key) ? 'active' : '' ?>">
-                        <span><?= $item['titulo'] ?></span>
-                    </a>
+                    <?php if ($key === 'playground') {
+                    continue;
+                    } ?>
+                <a href="?cenario=<?= $key ?><?= $debugQueryParam ?>"
+                    class="scenario-pill <?= ($cenarioAtual === $key) ? 'active' : '' ?>">
+                    <span><?= $item['titulo'] ?></span>
+                </a>
                 <?php endforeach; ?>
+                <?php if (isset($cenarios['playground'])): ?>
+                <a href="?cenario=playground<?= $debugQueryParam ?>"
+                    class="scenario-pill scenario-pill-playground ms-auto <?= ($cenarioAtual === 'playground') ? 'active' : '' ?>">
+                    <i class="bi bi-terminal-fill"></i>
+                    <span><?= $cenarios['playground']['titulo'] ?></span>
+                </a>
+                <?php endif; ?>
             </div>
         </section>
 
@@ -833,7 +908,8 @@ if (!function_exists('renderGridTable')) {
             <div class="row g-3">
                 <div class="col-6 col-md-3">
                     <div class="hud-card">
-                        <div class="text-secondary small fw-semibold text-uppercase" style="font-size: 0.7rem;">Tempo de Execução</div>
+                        <div class="text-secondary small fw-semibold text-uppercase" style="font-size: 0.7rem;">Tempo de
+                            Execução</div>
                         <div class="h3 fw-bold text-cyan font-mono mb-0 mt-1" id="hud-tempo-execucao">
                             <?= $tempoMs ?> <span class="fs-6 fw-normal text-secondary">ms</span>
                         </div>
@@ -845,7 +921,8 @@ if (!function_exists('renderGridTable')) {
 
                 <div class="col-6 col-md-3">
                     <div class="hud-card">
-                        <div class="text-secondary small fw-semibold text-uppercase" style="font-size: 0.7rem;">Registros Retornados</div>
+                        <div class="text-secondary small fw-semibold text-uppercase" style="font-size: 0.7rem;">
+                            Registros Retornados</div>
                         <div class="h3 fw-bold text-orange font-mono mb-0 mt-1" id="hud-total-registros">
                             <?= $totalLinhas ?>
                         </div>
@@ -857,7 +934,8 @@ if (!function_exists('renderGridTable')) {
 
                 <div class="col-6 col-md-3">
                     <div class="hud-card">
-                        <div class="text-secondary small fw-semibold text-uppercase" style="font-size: 0.7rem;">Driver Ativo</div>
+                        <div class="text-secondary small fw-semibold text-uppercase" style="font-size: 0.7rem;">Driver
+                            Ativo</div>
                         <div class="h5 fw-bold text-white font-mono mb-0 mt-1">
                             SQLite PDO
                         </div>
@@ -869,7 +947,8 @@ if (!function_exists('renderGridTable')) {
 
                 <div class="col-6 col-md-3">
                     <div class="hud-card">
-                        <div class="text-secondary small fw-semibold text-uppercase" style="font-size: 0.7rem;">Memória da Query</div>
+                        <div class="text-secondary small fw-semibold text-uppercase" style="font-size: 0.7rem;">Memória
+                            da Query</div>
                         <div class="h5 fw-bold text-white font-mono mb-0 mt-1">
                             <?= $memoriaUsada ?>
                         </div>
@@ -884,229 +963,276 @@ if (!function_exists('renderGridTable')) {
         <!-- DESCRIÇÃO DO CENÁRIO ATIVO -->
         <div class="bg-card p-3 rounded-3 mb-4 d-flex flex-wrap align-items-center justify-content-between gap-3">
             <div>
-                <span class="badge <?= $dadosCenario['badge'] ?> text-uppercase mb-2" style="font-size: 0.7rem; letter-spacing: 0.05em;">
+                <span class="badge <?= $dadosCenario['badge'] ?> text-uppercase mb-2"
+                    style="font-size: 0.7rem; letter-spacing: 0.05em;">
                     <?= $dadosCenario['tag'] ?>
                 </span>
                 <h2 class="h5 fw-bold text-white mb-1"><?= $dadosCenario['titulo'] ?></h2>
                 <p class="text-secondary small mb-0"><?= $dadosCenario['desc'] ?></p>
             </div>
             <?php if ($cenarioAtual === 'playground'): ?>
-                <!-- <button type="submit" form="sqlPlaygroundForm" class="btn btn-brand-gradient btn-sm px-4">
+            <!-- <button type="submit" form="sqlPlaygroundForm" class="btn btn-brand-gradient btn-sm px-4">
                     <i class="bi bi-play-fill me-1"></i> Executar SQL
                 </button> -->
             <?php endif; ?>
         </div>
 
         <?php if ($erroExecucao): ?>
-            <div class="alert alert-danger bg-danger-subtle text-danger border-danger mb-4">
-                <i class="bi bi-exclamation-triangle-fill me-2"></i><strong>Erro na Execução:</strong> <?= htmlspecialchars($erroExecucao) ?>
-            </div>
+        <div class="alert alert-danger bg-danger-subtle text-danger border-danger mb-4">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i><strong>Erro na Execução:</strong>
+            <?= htmlspecialchars($erroExecucao) ?>
+        </div>
         <?php endif; ?>
 
         <?php if ($cenarioAtual === 'transacao_manual'):
             $modoAtual = $_GET['modo'] ?? 'commit';
         ?>
-            <!-- PAINEL INTERATIVO DE CONTROLE MANUAL DE TRANSAÇÃO -->
-            <div class="bg-card p-3 rounded-3 mb-4 border border-secondary border-opacity-25 shadow-sm">
-                <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
-                    <div>
-                        <span class="text-secondary small fw-semibold text-uppercase font-mono d-block mb-1">
-                            <i class="bi bi-sliders me-1"></i> Controle Interativo do Fluxo Transacional
-                        </span>
-                        <span class="text-white small">
-                            Alterne entre os modos para testar o comportamento manual com <code>$db->commit()</code> ou reversão com <code>$db->rollback()</code>:
-                        </span>
-                    </div>
-                    <div class="btn-group" role="group">
-                        <a href="?cenario=transacao_manual&modo=commit" class="btn btn-sm <?= ($modoAtual !== 'rollback') ? 'btn-success fw-bold shadow-sm' : 'btn-outline-success' ?>">
-                            <i class="bi bi-check-circle-fill me-1"></i> Executar Commit ($db->commit())
-                        </a>
-                        <a href="?cenario=transacao_manual&modo=rollback" class="btn btn-sm <?= ($modoAtual === 'rollback') ? 'btn-danger fw-bold shadow-sm' : 'btn-outline-danger' ?>">
-                            <i class="bi bi-arrow-counterclockwise me-1"></i> Simular Falha ($db->rollback())
-                        </a>
-                    </div>
+        <!-- PAINEL INTERATIVO DE CONTROLE MANUAL DE TRANSAÇÃO -->
+        <div class="bg-card p-3 rounded-3 mb-4 border border-secondary border-opacity-25 shadow-sm">
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+                <div>
+                    <span class="text-secondary small fw-semibold text-uppercase font-mono d-block mb-1">
+                        <i class="bi bi-sliders me-1"></i> Controle Interativo do Fluxo Transacional
+                    </span>
+                    <span class="text-white small">
+                        Alterne entre os modos para testar o comportamento manual com <code>$db->commit()</code> ou
+                        reversão com <code>$db->rollback()</code>:
+                    </span>
+                </div>
+                <div class="btn-group" role="group">
+                    <a href="?cenario=transacao_manual&modo=commit"
+                        class="btn btn-sm <?= ($modoAtual !== 'rollback') ? 'btn-success fw-bold shadow-sm' : 'btn-outline-success' ?>">
+                        <i class="bi bi-check-circle-fill me-1"></i> Executar Commit ($db->commit())
+                    </a>
+                    <a href="?cenario=transacao_manual&modo=rollback"
+                        class="btn btn-sm <?= ($modoAtual === 'rollback') ? 'btn-danger fw-bold shadow-sm' : 'btn-outline-danger' ?>">
+                        <i class="bi bi-arrow-counterclockwise me-1"></i> Simular Falha ($db->rollback())
+                    </a>
                 </div>
             </div>
+        </div>
         <?php endif; ?>
 
         <?php if ($cenarioAtual === 'playground'): ?>
-            <!-- EDITOR DE SQL LIVRE -->
-            <div class="bg-card p-3 rounded-3 mb-4">
-                <form id="sqlPlaygroundForm" method="POST" action="?cenario=playground">
-                    <div class="d-flex align-items-center justify-content-between mb-2">
-                        <label class="form-label small fw-semibold text-secondary text-uppercase font-mono mb-0">
-                            <i class="bi bi-terminal me-1"></i> Editor SQL Livre (SQLite)
-                        </label>
-                        <span class="badge bg-success-subtle text-success border border-success border-opacity-25 font-mono" style="font-size: 0.7rem;">
-                            <i class="bi bi-shield-check me-1"></i> Sandbox Blindada
-                        </span>
-                    </div>
-                    <textarea name="custom_sql" rows="3" maxlength="2048" class="form-control font-mono bg-dark text-white border-secondary mb-2" style="font-size: 0.9rem;" placeholder="Ex: SELECT * FROM produtos WHERE preco > 100"><?= htmlspecialchars($_POST['custom_sql'] ?? $_GET['sql'] ?? "SELECT * FROM produtos WHERE estoque < 20") ?></textarea>
-                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
-                        <span class="text-secondary small">
-                            Tabelas: <code>clientes</code>, <code>categorias</code>, <code>produtos</code>, <code>pedidos</code>, <code>contas</code>.
-                            <span class="text-secondary opacity-75 d-block d-md-inline ms-md-1">(Apenas consultas <code>SELECT</code> e <code>EXPLAIN</code>)</span>
-                        </span>
-                        <button type="submit" class="btn btn-brand-gradient btn-sm px-3">
-                            <i class="bi bi-play-circle-fill me-1"></i> Rodar Consulta
-                        </button>
-                    </div>
-                </form>
-            </div>
+        <!-- EDITOR DE SQL LIVRE -->
+        <div class="bg-card p-3 rounded-3 mb-4">
+            <form id="sqlPlaygroundForm" method="POST" action="?cenario=playground">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <label class="form-label small fw-semibold text-secondary text-uppercase font-mono mb-0">
+                        <i class="bi bi-terminal me-1"></i> Editor SQL Livre (SQLite)
+                    </label>
+                    <span class="badge bg-success-subtle text-success border border-success border-opacity-25 font-mono"
+                        style="font-size: 0.7rem;">
+                        <i class="bi bi-shield-check me-1"></i> Sandbox Blindada
+                    </span>
+                </div>
+                <textarea name="custom_sql" rows="3" maxlength="2048"
+                    class="form-control font-mono bg-dark text-white border-secondary mb-2" style="font-size: 0.9rem;"
+                    placeholder="Ex: SELECT * FROM produtos WHERE preco > 100"><?= htmlspecialchars($_POST['custom_sql'] ?? $_GET['sql'] ?? "SELECT * FROM produtos WHERE estoque < 20") ?></textarea>
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                    <span class="text-secondary small">
+                        Tabelas: <code>clientes</code>, <code>categorias</code>, <code>produtos</code>,
+                        <code>pedidos</code>, <code>contas</code>.
+                        <span class="text-secondary opacity-75 d-block d-md-inline ms-md-1">(Apenas consultas
+                            <code>SELECT</code> e <code>EXPLAIN</code>)</span>
+                    </span>
+                    <button type="submit" class="btn btn-brand-gradient btn-sm px-3">
+                        <i class="bi bi-play-circle-fill me-1"></i> Rodar Consulta
+                    </button>
+                </div>
+            </form>
+        </div>
         <?php endif; ?>
 
         <!-- TABS DE VISUALIZAÇÃO -->
         <div class="bg-card rounded-3 p-3">
             <ul class="nav nav-tabs border-secondary border-opacity-25 mb-3" id="demoTabs" role="tablist">
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link active" id="grid-tab" data-bs-toggle="tab" data-bs-target="#grid-pane" type="button" role="tab">
-                        <i class="bi bi-table me-1"></i> Tabela Interativa (<span id="tab-total-registros"><?= $totalLinhas ?></span>)
+                    <button class="nav-link active" id="grid-tab" data-bs-toggle="tab" data-bs-target="#grid-pane"
+                        type="button" role="tab">
+                        <i class="bi bi-table me-1"></i> Tabela Interativa (<span
+                            id="tab-total-registros"><?= $totalLinhas ?></span>)
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="code-tab" data-bs-toggle="tab" data-bs-target="#code-pane" type="button" role="tab">
+                    <button class="nav-link" id="code-tab" data-bs-toggle="tab" data-bs-target="#code-pane"
+                        type="button" role="tab">
                         <i class="bi bi-code-slash me-1"></i> Código PHP
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="json-tab" data-bs-toggle="tab" data-bs-target="#json-pane" type="button" role="tab">
+                    <button class="nav-link" id="json-tab" data-bs-toggle="tab" data-bs-target="#json-pane"
+                        type="button" role="tab">
                         <i class="bi bi-braces me-1"></i> JSON Bruto
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="schema-tab" data-bs-toggle="tab" data-bs-target="#schema-pane" type="button" role="tab">
+                    <button class="nav-link" id="schema-tab" data-bs-toggle="tab" data-bs-target="#schema-pane"
+                        type="button" role="tab">
                         <i class="bi bi-database me-1"></i> Schema das Tabelas
                     </button>
                 </li>
             </ul>
 
             <div class="tab-content" id="demoTabsContent">
-                                <!-- TAB 1: GRID TABELA -->
+                <!-- TAB 1: GRID TABELA -->
                 <div class="tab-pane fade show active" id="grid-pane" role="tabpanel">
                     <?php if ($cenarioAtual === 'paginacao'): ?>
-                        <!-- APLICAÇÃO REATIVA VUE.JS 3 VIA CDN -->
-                        <div id="vue-pagination-app">
-                            <!-- Painel de Controles Reativos -->
-                            <div class="p-3 mb-3 rounded-3 bg-card-subtle border border-secondary border-opacity-25 shadow-sm">
-                                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3 pb-2 border-bottom border-secondary border-opacity-25">
-                                    <div class="d-flex align-items-center gap-2">
-                                        <span class="badge bg-success-subtle text-success border border-success border-opacity-25 font-mono px-2 py-1">
-                                            <i class="bi bi-lightning-charge-fill me-1"></i>Vue 3 Reativo via CDN
-                                        </span>
-                                        <span class="text-secondary small">Paginação, filtros e telemetria sem recarregar a página</span>
-                                    </div>
-                                    <div class="d-flex align-items-center gap-3">
-                                        <span class="text-secondary small font-mono">
-                                            Tempo API: <strong class="text-cyan">{{ responseTimeMs }} ms</strong>
-                                        </span>
-                                        <div v-if="loading" class="spinner-border spinner-border-sm text-cyan" role="status"></div>
-                                    </div>
+                    <!-- APLICAÇÃO REATIVA VUE.JS 3 VIA CDN -->
+                    <div id="vue-pagination-app">
+                        <!-- Painel de Controles Reativos -->
+                        <div
+                            class="p-3 mb-3 rounded-3 bg-card-subtle border border-secondary border-opacity-25 shadow-sm">
+                            <div
+                                class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3 pb-2 border-bottom border-secondary border-opacity-25">
+                                <div class="d-flex align-items-center gap-2">
+                                    <span
+                                        class="badge bg-success-subtle text-success border border-success border-opacity-25 font-mono px-2 py-1">
+                                        <i class="bi bi-lightning-charge-fill me-1"></i>Vue 3 Reativo via CDN
+                                    </span>
+                                    <span class="text-secondary small">Paginação, filtros e telemetria sem recarregar a
+                                        página</span>
                                 </div>
-
-                                <div class="row g-3 align-items-end">
-                                    <!-- Busca Instantânea -->
-                                    <div class="col-12 col-md-4">
-                                        <label class="form-label small text-secondary text-uppercase font-mono mb-1">
-                                            <i class="bi bi-search me-1"></i> Filtrar Catálogo
-                                        </label>
-                                        <input type="text" v-model="search" class="form-control form-control-sm bg-dark text-white border-secondary" placeholder="Buscar por produto ou categoria...">
-                                    </div>
-
-                                    <!-- Slider Preço Mínimo -->
-                                    <div class="col-12 col-md-5">
-                                        <div class="d-flex justify-content-between align-items-center mb-1">
-                                            <label class="form-label small text-secondary text-uppercase font-mono mb-0">
-                                                <i class="bi bi-tag-fill me-1"></i> Preço Mínimo
-                                            </label>
-                                            <span class="badge bg-primary font-mono">R$ {{ minPreco.toFixed(2) }}</span>
-                                        </div>
-                                        <input type="range" v-model.number="minPreco" min="0" max="1000" step="25" class="form-range">
-                                        <div class="d-flex gap-1 mt-1 flex-wrap">
-                                            <button type="button" @click="minPreco = 0" class="btn btn-outline-secondary py-0 px-2 font-mono" style="font-size: 0.68rem;">Todos (R$ 0)</button>
-                                            <button type="button" @click="minPreco = 50" class="btn btn-outline-secondary py-0 px-2 font-mono" style="font-size: 0.68rem;">≥ R$ 50</button>
-                                            <button type="button" @click="minPreco = 100" class="btn btn-outline-secondary py-0 px-2 font-mono" style="font-size: 0.68rem;">≥ R$ 100</button>
-                                            <button type="button" @click="minPreco = 150" class="btn btn-outline-secondary py-0 px-2 font-mono" style="font-size: 0.68rem;">≥ R$ 150</button>
-                                            <button type="button" @click="minPreco = 300" class="btn btn-outline-secondary py-0 px-2 font-mono" style="font-size: 0.68rem;">≥ R$ 300</button>
-                                        </div>
-                                    </div>
-
-                                    <!-- Seletor de Itens por Página -->
-                                    <div class="col-12 col-md-3">
-                                        <label class="form-label small text-secondary text-uppercase font-mono mb-1">
-                                            <i class="bi bi-list-ol me-1"></i> Itens por Página
-                                        </label>
-                                        <select v-model.number="perPage" class="form-select form-select-sm bg-dark text-white border-secondary">
-                                            <option :value="2">2 por página</option>
-                                            <option :value="4">4 por página</option>
-                                            <option :value="6">6 por página</option>
-                                            <option :value="10">10 por página</option>
-                                        </select>
-                                    </div>
+                                <div class="d-flex align-items-center gap-3">
+                                    <span class="text-secondary small font-mono">
+                                        Tempo API: <strong class="text-cyan">{{ responseTimeMs }} ms</strong>
+                                    </span>
+                                    <div v-if="loading" class="spinner-border spinner-border-sm text-cyan"
+                                        role="status"></div>
                                 </div>
                             </div>
 
-                            <!-- Tabela Reativa -->
-                            <div class="table-responsive border rounded-3 bg-white shadow-sm position-relative">
-                                <div v-if="loading" class="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center bg-dark bg-opacity-75" style="z-index: 10;">
-                                    <div class="spinner-border text-cyan" role="status"></div>
+                            <div class="row g-3 align-items-end">
+                                <!-- Busca Instantânea -->
+                                <div class="col-12 col-md-4">
+                                    <label class="form-label small text-secondary text-uppercase font-mono mb-1">
+                                        <i class="bi bi-search me-1"></i> Filtrar Catálogo
+                                    </label>
+                                    <input type="text" v-model="search"
+                                        class="form-control form-control-sm bg-dark text-white border-secondary"
+                                        placeholder="Buscar por produto ou categoria...">
                                 </div>
 
-                                <table class="table table-hover table-striped align-middle mb-0 font-sans" style="font-size: 0.88rem;">
-                                    <thead class="table-light border-bottom text-uppercase fw-semibold" style="font-size: 0.75rem; letter-spacing: 0.05em;">
-                                        <tr>
-                                            <th class="py-3 px-3">Código</th>
-                                            <th class="py-3 px-3">Produto</th>
-                                            <th class="py-3 px-3">Categoria</th>
-                                            <th class="py-3 px-3">Preço Unitário</th>
-                                            <th class="py-3 px-3">Estoque</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr v-if="items.length === 0">
-                                            <td colspan="5" class="text-center py-4 text-secondary">
-                                                <i class="bi bi-inbox fs-4 d-block mb-1"></i>
-                                                Nenhum produto atende aos filtros atuais.
-                                            </td>
-                                        </tr>
-                                        <tr v-for="item in items" :key="item.id_produto">
-                                            <td class="py-2 px-3 font-mono text-primary">#{{ item.id_produto }}</td>
-                                            <td class="py-2 px-3 fw-semibold">{{ item.nome_produto }}</td>
-                                            <td class="py-2 px-3">
-                                                <span class="badge bg-primary-subtle text-cyan border border-primary border-opacity-25">{{ item.nome_categoria }}</span>
-                                            </td>
-                                            <td class="py-2 px-3 font-mono">
-                                                <strong>R$ {{ Number(item.preco).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}</strong>
-                                            </td>
-                                            <td class="py-2 px-3">
-                                                <span :class="item.estoque <= 10 ? 'badge bg-danger-subtle text-danger border border-danger' : 'badge bg-success-subtle text-success border border-success'">
-                                                    {{ item.estoque }} un
-                                                </span>
-                                            </td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-
-                            <!-- Barra de Paginação Reativa -->
-                            <div class="d-flex flex-wrap align-items-center justify-content-between p-3 mt-3 bg-card-subtle rounded-3 border border-secondary border-opacity-25">
-                                <div class="text-secondary small font-mono">
-                                    Exibindo <strong>{{ pagination.from || 0 }}-{{ pagination.to || 0 }}</strong> de <strong>{{ pagination.total || 0 }}</strong> registros (Página {{ pagination.current_page || 1 }} de {{ pagination.last_page || 1 }})
+                                <!-- Slider Preço Mínimo -->
+                                <div class="col-12 col-md-5">
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <label class="form-label small text-secondary text-uppercase font-mono mb-0">
+                                            <i class="bi bi-tag-fill me-1"></i> Preço Mínimo
+                                        </label>
+                                        <span class="badge bg-primary font-mono">R$ {{ minPreco.toFixed(2) }}</span>
+                                    </div>
+                                    <input type="range" v-model.number="minPreco" min="0" max="1000" step="25"
+                                        class="form-range">
+                                    <div class="d-flex gap-1 mt-1 flex-wrap">
+                                        <button type="button" @click="minPreco = 0"
+                                            class="btn btn-outline-secondary py-0 px-2 font-mono"
+                                            style="font-size: 0.68rem;">Todos (R$ 0)</button>
+                                        <button type="button" @click="minPreco = 50"
+                                            class="btn btn-outline-secondary py-0 px-2 font-mono"
+                                            style="font-size: 0.68rem;">≥ R$ 50</button>
+                                        <button type="button" @click="minPreco = 100"
+                                            class="btn btn-outline-secondary py-0 px-2 font-mono"
+                                            style="font-size: 0.68rem;">≥ R$ 100</button>
+                                        <button type="button" @click="minPreco = 150"
+                                            class="btn btn-outline-secondary py-0 px-2 font-mono"
+                                            style="font-size: 0.68rem;">≥ R$ 150</button>
+                                        <button type="button" @click="minPreco = 300"
+                                            class="btn btn-outline-secondary py-0 px-2 font-mono"
+                                            style="font-size: 0.68rem;">≥ R$ 300</button>
+                                    </div>
                                 </div>
-                                <div class="btn-group btn-group-sm mt-2 mt-md-0" role="group">
-                                    <button @click="fetchPage(pagination.current_page - 1)" :disabled="!pagination.has_previous" class="btn btn-outline-secondary">
-                                        « Anterior
-                                    </button>
-                                    <button v-for="p in pagination.last_page" :key="p" @click="fetchPage(p)" class="btn" :class="p === pagination.current_page ? 'btn-primary' : 'btn-outline-secondary'">
-                                        {{ p }}
-                                    </button>
-                                    <button @click="fetchPage(pagination.current_page + 1)" :disabled="!pagination.has_more" class="btn btn-outline-secondary">
-                                        Próxima »
-                                    </button>
+
+                                <!-- Seletor de Itens por Página -->
+                                <div class="col-12 col-md-3">
+                                    <label class="form-label small text-secondary text-uppercase font-mono mb-1">
+                                        <i class="bi bi-list-ol me-1"></i> Itens por Página
+                                    </label>
+                                    <select v-model.number="perPage"
+                                        class="form-select form-select-sm bg-dark text-white border-secondary">
+                                        <option :value="2">2 por página</option>
+                                        <option :value="4">4 por página</option>
+                                        <option :value="6">6 por página</option>
+                                        <option :value="10">10 por página</option>
+                                    </select>
                                 </div>
                             </div>
                         </div>
+
+                        <!-- Tabela Reativa -->
+                        <div class="table-responsive border rounded-3 bg-white shadow-sm position-relative">
+                            <div v-if="loading"
+                                class="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center bg-dark bg-opacity-75"
+                                style="z-index: 10;">
+                                <div class="spinner-border text-cyan" role="status"></div>
+                            </div>
+
+                            <table class="table table-hover table-striped align-middle mb-0 font-sans"
+                                style="font-size: 0.88rem;">
+                                <thead class="table-light border-bottom text-uppercase fw-semibold"
+                                    style="font-size: 0.75rem; letter-spacing: 0.05em;">
+                                    <tr>
+                                        <th class="py-3 px-3">Código</th>
+                                        <th class="py-3 px-3">Produto</th>
+                                        <th class="py-3 px-3">Categoria</th>
+                                        <th class="py-3 px-3">Preço Unitário</th>
+                                        <th class="py-3 px-3">Estoque</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-if="items.length === 0">
+                                        <td colspan="5" class="text-center py-4 text-secondary">
+                                            <i class="bi bi-inbox fs-4 d-block mb-1"></i>
+                                            Nenhum produto atende aos filtros atuais.
+                                        </td>
+                                    </tr>
+                                    <tr v-for="item in items" :key="item.id_produto">
+                                        <td class="py-2 px-3 font-mono text-primary">#{{ item.id_produto }}</td>
+                                        <td class="py-2 px-3 fw-semibold">{{ item.nome_produto }}</td>
+                                        <td class="py-2 px-3">
+                                            <span
+                                                class="badge bg-primary-subtle text-cyan border border-primary border-opacity-25">{{ item.nome_categoria }}</span>
+                                        </td>
+                                        <td class="py-2 px-3 font-mono">
+                                            <strong>R$
+                                                {{ Number(item.preco).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}</strong>
+                                        </td>
+                                        <td class="py-2 px-3">
+                                            <span
+                                                :class="item.estoque <= 10 ? 'badge bg-danger-subtle text-danger border border-danger' : 'badge bg-success-subtle text-success border border-success'">
+                                                {{ item.estoque }} un
+                                            </span>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Barra de Paginação Reativa -->
+                        <div
+                            class="d-flex flex-wrap align-items-center justify-content-between p-3 mt-3 bg-card-subtle rounded-3 border border-secondary border-opacity-25">
+                            <div class="text-secondary small font-mono">
+                                Exibindo <strong>{{ pagination.from || 0 }}-{{ pagination.to || 0 }}</strong> de
+                                <strong>{{ pagination.total || 0 }}</strong> registros (Página
+                                {{ pagination.current_page || 1 }} de {{ pagination.last_page || 1 }})
+                            </div>
+                            <div class="btn-group btn-group-sm mt-2 mt-md-0" role="group">
+                                <button @click="fetchPage(pagination.current_page - 1)"
+                                    :disabled="!pagination.has_previous" class="btn btn-outline-secondary">
+                                    « Anterior
+                                </button>
+                                <button v-for="p in pagination.last_page" :key="p" @click="fetchPage(p)" class="btn"
+                                    :class="p === pagination.current_page ? 'btn-primary' : 'btn-outline-secondary'">
+                                    {{ p }}
+                                </button>
+                                <button @click="fetchPage(pagination.current_page + 1)" :disabled="!pagination.has_more"
+                                    class="btn btn-outline-secondary">
+                                    Próxima »
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                     <?php else: ?>
-                        <?= renderGridTable($linhas) ?>
+                    <?= renderGridTable($linhas) ?>
                     <?php endif; ?>
                 </div>
 
@@ -1114,7 +1240,8 @@ if (!function_exists('renderGridTable')) {
                 <div class="tab-pane fade" id="code-pane" role="tabpanel">
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <span class="text-secondary small font-mono">PHP 8.2+ · Prepared Statements & Facade DB</span>
-                        <button class="btn btn-sm btn-outline-secondary" onclick="navigator.clipboard.writeText(document.getElementById('codeBlock').innerText); this.innerHTML='<i class=\'bi bi-check2\'></i> Copiado!'; setTimeout(() => this.innerHTML='<i class=\'bi bi-copy\'></i> Copiar', 2000);">
+                        <button class="btn btn-sm btn-outline-secondary"
+                            onclick="navigator.clipboard.writeText(document.getElementById('codeBlock').innerText); this.innerHTML='<i class=\'bi bi-check2\'></i> Copiado!'; setTimeout(() => this.innerHTML='<i class=\'bi bi-copy\'></i> Copiar', 2000);">
                             <i class="bi bi-copy me-1"></i> Copiar
                         </button>
                     </div>
@@ -1125,7 +1252,8 @@ if (!function_exists('renderGridTable')) {
                 <div class="tab-pane fade" id="json-pane" role="tabpanel">
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <span class="text-secondary small font-mono">Formato JSON do resultado ($result->rows)</span>
-                        <button class="btn btn-sm btn-outline-secondary" onclick="navigator.clipboard.writeText(document.getElementById('jsonBlock').innerText); this.innerHTML='<i class=\'bi bi-check2\'></i> Copiado!'; setTimeout(() => this.innerHTML='<i class=\'bi bi-copy\'></i> Copiar', 2000);">
+                        <button class="btn btn-sm btn-outline-secondary"
+                            onclick="navigator.clipboard.writeText(document.getElementById('jsonBlock').innerText); this.innerHTML='<i class=\'bi bi-check2\'></i> Copiado!'; setTimeout(() => this.innerHTML='<i class=\'bi bi-copy\'></i> Copiar', 2000);">
                             <i class="bi bi-copy me-1"></i> Copiar JSON
                         </button>
                     </div>
@@ -1184,26 +1312,39 @@ if (!function_exists('renderGridTable')) {
         <?php if ($debugAtivo): ?>
         <section class="mt-4">
             <div class="card bg-card border-secondary border-opacity-25 shadow-lg rounded-3 overflow-hidden">
-                <div class="card-header bg-card-subtle border-secondary border-opacity-25 py-3 px-4 d-flex flex-wrap justify-content-between align-items-center gap-2">
+                <div
+                    class="card-header bg-card-subtle border-secondary border-opacity-25 py-3 px-4 d-flex flex-wrap justify-content-between align-items-center gap-2">
                     <div class="d-flex align-items-center gap-2">
                         <i class="bi bi-bug-fill text-orange fs-5"></i>
                         <h2 class="h6 mb-0 text-white font-mono fw-bold">Modo Debug & Agregador de Consultas</h2>
-                        <span class="badge bg-success-subtle text-success border border-success border-opacity-25 font-mono" style="font-size: 0.7rem;">ATIVO</span>
+                        <span
+                            class="badge bg-success-subtle text-success border border-success border-opacity-25 font-mono"
+                            style="font-size: 0.7rem;">ATIVO</span>
                     </div>
                     <div class="d-flex flex-wrap align-items-center gap-2">
-                        <span class="badge bg-dark border border-secondary border-opacity-25 text-white font-mono px-2 py-1">
-                            <i class="bi bi-database me-1 text-cyan"></i><?= (int)($debugMetrics['total_queries'] ?? 0) ?> <?= ((int)($debugMetrics['total_queries'] ?? 0) === 1) ? 'consulta' : 'consultas' ?>
+                        <span
+                            class="badge bg-dark border border-secondary border-opacity-25 text-white font-mono px-2 py-1">
+                            <i
+                                class="bi bi-database me-1 text-cyan"></i><?= (int)($debugMetrics['total_queries'] ?? 0) ?>
+                            <?= ((int)($debugMetrics['total_queries'] ?? 0) === 1) ? 'consulta' : 'consultas' ?>
                         </span>
-                        <span class="badge bg-dark border border-secondary border-opacity-25 text-white font-mono px-2 py-1">
-                            <i class="bi bi-stopwatch me-1 text-warning"></i><?= number_format((float)($debugMetrics['total_time_ms'] ?? 0), 3) ?> ms total
+                        <span
+                            class="badge bg-dark border border-secondary border-opacity-25 text-white font-mono px-2 py-1">
+                            <i
+                                class="bi bi-stopwatch me-1 text-warning"></i><?= number_format((float)($debugMetrics['total_time_ms'] ?? 0), 3) ?>
+                            ms total
                         </span>
-                        <span class="badge bg-primary-subtle text-cyan border border-primary border-opacity-25 font-mono px-2 py-1">
+                        <span
+                            class="badge bg-primary-subtle text-cyan border border-primary border-opacity-25 font-mono px-2 py-1">
                             <?= (int)($debugMetrics['named_queries'] ?? 0) ?> nomeadas
                         </span>
-                        <span class="badge bg-warning-subtle text-warning border border-warning border-opacity-25 font-mono px-2 py-1">
+                        <span
+                            class="badge bg-warning-subtle text-warning border border-warning border-opacity-25 font-mono px-2 py-1">
                             <?= (int)($debugMetrics['positional_queries'] ?? 0) ?> posicionais
                         </span>
-                        <button class="btn btn-sm btn-outline-secondary font-mono" type="button" data-bs-toggle="collapse" data-bs-target="#debugLogCollapse" aria-expanded="true" aria-controls="debugLogCollapse">
+                        <button class="btn btn-sm btn-outline-secondary font-mono" type="button"
+                            data-bs-toggle="collapse" data-bs-target="#debugLogCollapse" aria-expanded="true"
+                            aria-controls="debugLogCollapse">
                             <i class="bi bi-chevron-down"></i> Detalhes
                         </button>
                     </div>
@@ -1212,71 +1353,83 @@ if (!function_exists('renderGridTable')) {
                 <div class="collapse show" id="debugLogCollapse">
                     <div class="card-body p-4 bg-dark">
                         <?php if (empty($debugLogs)): ?>
-                            <div class="text-secondary small font-mono py-2 text-center">
-                                <i class="bi bi-info-circle me-1"></i> Nenhuma consulta SQL executada neste cenário.
-                            </div>
+                        <div class="text-secondary small font-mono py-2 text-center">
+                            <i class="bi bi-info-circle me-1"></i> Nenhuma consulta SQL executada neste cenário.
+                        </div>
                         <?php else: ?>
-                            <div class="d-flex flex-column gap-3">
-                                <?php foreach ($debugLogs as $idx => $record): ?>
-                                    <div class="p-3 rounded-3 border border-secondary border-opacity-25" style="background-color: #0b0f19;">
-                                        <div class="d-flex flex-wrap justify-content-between align-items-center mb-2 gap-2">
-                                            <div class="d-flex align-items-center gap-2">
-                                                <span class="badge bg-secondary font-mono">#<?= $idx + 1 ?></span>
-                                                <?php
+                        <div class="d-flex flex-column gap-3">
+                            <?php foreach ($debugLogs as $idx => $record): ?>
+                            <div class="p-3 rounded-3 border border-secondary border-opacity-25"
+                                style="background-color: #0b0f19;">
+                                <div class="d-flex flex-wrap justify-content-between align-items-center mb-2 gap-2">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="badge bg-secondary font-mono">#<?= $idx + 1 ?></span>
+                                        <?php
                                                     $typeBadge = match ($record->type) {
                                                         'query' => 'bg-primary',
                                                         'cursor' => 'bg-info text-dark',
                                                         default => 'bg-success',
                                                     };
                                                 ?>
-                                                <span class="badge <?= $typeBadge ?> font-mono text-uppercase">
-                                                    <?= htmlspecialchars($record->type) ?>
-                                                </span>
-                                                <?php if ($record->connection !== null): ?>
-                                                    <span class="badge bg-dark border border-info border-opacity-25 text-cyan font-mono">
-                                                        <i class="bi bi-plug me-1"></i><?= htmlspecialchars($record->connection) ?>
-                                                    </span>
-                                                <?php endif; ?>
-                                                <?php if (!$record->hasParams()): ?>
-                                                    <span class="badge bg-secondary-subtle text-secondary font-mono">Sem binds</span>
-                                                <?php elseif ($record->isNamed()): ?>
-                                                    <span class="badge bg-info-subtle text-cyan font-mono"><i class="bi bi-tag-fill me-1"></i>Bind Nomeado</span>
-                                                <?php else: ?>
-                                                    <span class="badge bg-warning-subtle text-warning font-mono"><i class="bi bi-question-lg me-1"></i>Bind Posicional (?)</span>
-                                                <?php endif; ?>
-                                                <?php if ($record->driver !== ''): ?>
-                                                    <span class="badge bg-dark border border-secondary border-opacity-25 text-secondary font-mono">
-                                                        <?= htmlspecialchars(strtoupper($record->driver)) ?>
-                                                    </span>
-                                                <?php endif; ?>
-                                            </div>
-                                            <div class="d-flex align-items-center gap-2 font-mono small">
-                                                <span class="text-warning">
-                                                    <i class="bi bi-clock me-1"></i><?= number_format($record->elapsedTime * 1000, 3) ?> ms
-                                                </span>
-                                                <span class="text-secondary">|</span>
-                                                <span class="text-info">
-                                                    <?= $record->affectedRows ?> <?= in_array($record->type, ['query', 'cursor'], true) ? 'linhas' : 'afetadas' ?>
-                                                </span>
-                                            </div>
-                                        </div>
-
-                                        <pre class="mb-2 p-2 rounded bg-black border border-secondary border-opacity-10"><code class="language-sql font-mono"><?= htmlspecialchars(trim($record->sql)) ?></code></pre>
-
-                                        <?php if ($record->hasParams()): ?>
-                                            <div class="bg-card-subtle p-2 rounded border border-secondary border-opacity-10 d-flex flex-wrap gap-2 align-items-center small font-mono">
-                                                <span class="text-secondary me-1">Parâmetros:</span>
-                                                <?php foreach ($record->params as $k => $v): ?>
-                                                    <span class="badge bg-dark border border-secondary border-opacity-25 text-white">
-                                                        <span class="text-cyan"><?= htmlspecialchars((string)$k) ?></span>:
-                                                        <span class="text-warning"><?= htmlspecialchars(is_scalar($v) ? (string)$v : (string)json_encode($v)) ?></span>
-                                                    </span>
-                                                <?php endforeach; ?>
-                                            </div>
+                                        <span class="badge <?= $typeBadge ?> font-mono text-uppercase">
+                                            <?= htmlspecialchars($record->type) ?>
+                                        </span>
+                                        <?php if ($record->connection !== null): ?>
+                                        <span
+                                            class="badge bg-dark border border-info border-opacity-25 text-cyan font-mono">
+                                            <i class="bi bi-plug me-1"></i><?= htmlspecialchars($record->connection) ?>
+                                        </span>
+                                        <?php endif; ?>
+                                        <?php if (!$record->hasParams()): ?>
+                                        <span class="badge bg-secondary-subtle text-secondary font-mono">Sem
+                                            binds</span>
+                                        <?php elseif ($record->isNamed()): ?>
+                                        <span class="badge bg-info-subtle text-cyan font-mono"><i
+                                                class="bi bi-tag-fill me-1"></i>Bind Nomeado</span>
+                                        <?php else: ?>
+                                        <span class="badge bg-warning-subtle text-warning font-mono"><i
+                                                class="bi bi-question-lg me-1"></i>Bind Posicional (?)</span>
+                                        <?php endif; ?>
+                                        <?php if ($record->driver !== ''): ?>
+                                        <span
+                                            class="badge bg-dark border border-secondary border-opacity-25 text-secondary font-mono">
+                                            <?= htmlspecialchars(strtoupper($record->driver)) ?>
+                                        </span>
                                         <?php endif; ?>
                                     </div>
-                                <?php endforeach; ?>
+                                    <div class="d-flex align-items-center gap-2 font-mono small">
+                                        <span class="text-warning">
+                                            <i
+                                                class="bi bi-clock me-1"></i><?= number_format($record->elapsedTime * 1000, 3) ?>
+                                            ms
+                                        </span>
+                                        <span class="text-secondary">|</span>
+                                        <span class="text-info">
+                                            <?= $record->affectedRows ?>
+                                            <?= in_array($record->type, ['query', 'cursor'], true) ? 'linhas' : 'afetadas' ?>
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <pre
+                                    class="mb-2 p-2 rounded bg-black border border-secondary border-opacity-10"><code class="language-sql font-mono"><?= htmlspecialchars(trim($record->sql)) ?></code></pre>
+
+                                <?php if ($record->hasParams()): ?>
+                                <div
+                                    class="bg-card-subtle p-2 rounded border border-secondary border-opacity-10 d-flex flex-wrap gap-2 align-items-center small font-mono">
+                                    <span class="text-secondary me-1">Parâmetros:</span>
+                                    <?php foreach ($record->params as $k => $v): ?>
+                                    <span class="badge bg-dark border border-secondary border-opacity-25 text-white">
+                                        <span class="text-cyan"><?= htmlspecialchars((string)$k) ?></span>:
+                                        <span
+                                            class="text-warning"><?= htmlspecialchars(is_scalar($v) ? (string)$v : (string)json_encode($v)) ?></span>
+                                    </span>
+                                    <?php endforeach; ?>
+                                </div>
+                                <?php endif; ?>
                             </div>
+                            <?php endforeach; ?>
+                        </div>
                         <?php endif; ?>
                     </div>
                 </div>
@@ -1284,7 +1437,8 @@ if (!function_exists('renderGridTable')) {
         </section>
         <?php else: ?>
         <section class="mt-4">
-            <div class="p-3 bg-card border border-secondary border-opacity-25 rounded-3 d-flex justify-content-between align-items-center">
+            <div
+                class="p-3 bg-card border border-secondary border-opacity-25 rounded-3 d-flex justify-content-between align-items-center">
                 <span class="text-secondary small font-mono">
                     <i class="bi bi-bug me-1"></i> Modo Debug desativado (overhead zero).
                 </span>
@@ -1298,10 +1452,12 @@ if (!function_exists('renderGridTable')) {
         <!-- FOOTER -->
         <footer class="text-center text-secondary small mt-5 pt-4 border-top border-secondary border-opacity-25">
             <p class="mb-1">
-                <strong>DbPHP</strong> é uma biblioteca open-source mantida por <a href="https://github.com/heliomarpm" target="_blank" class="text-decoration-none text-cyan">Heliomar P. Marques</a> sob licença MIT.
+                <strong>DbPHP</strong> é uma biblioteca open-source mantida por <a href="https://github.com/heliomarpm"
+                    target="_blank" class="text-decoration-none text-cyan">Heliomar P. Marques</a> sob licença MIT.
             </p>
             <p class="mb-0">
-                Par perfeito da biblioteca <a href="https://github.com/heliomarpm/linq-php" target="_blank" class="text-decoration-none text-orange">heliomarpm/linq-php</a>.
+                Par perfeito da biblioteca <a href="https://github.com/heliomarpm/linq-php" target="_blank"
+                    class="text-decoration-none text-orange">heliomarpm/linq-php</a>.
             </p>
         </footer>
     </div>
@@ -1309,13 +1465,19 @@ if (!function_exists('renderGridTable')) {
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-markup-templating.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-markup-templating.min.js">
+    </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-php.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-sql.min.js"></script>
     <script>
     if (typeof Vue !== 'undefined' && document.getElementById('vue-pagination-app')) {
-        const { createApp, ref, watch, onMounted } = Vue;
+        const {
+            createApp,
+            ref,
+            watch,
+            onMounted
+        } = Vue;
 
         createApp({
             setup() {
@@ -1371,7 +1533,8 @@ if (!function_exists('renderGridTable')) {
                         const tabTotal = document.getElementById('tab-total-registros');
                         if (tabTotal) tabTotal.innerText = totalRegistros;
                         const hudTempo = document.getElementById('hud-tempo-execucao');
-                        if (hudTempo) hudTempo.innerHTML = `${responseTimeMs.value} <span class="fs-6 fw-normal text-secondary">ms</span>`;
+                        if (hudTempo) hudTempo.innerHTML =
+                            `${responseTimeMs.value} <span class="fs-6 fw-normal text-secondary">ms</span>`;
 
                         // Atualiza a aba JSON Bruto com o resultado dinâmico
                         const jsonBlock = document.getElementById('jsonBlock');
@@ -1422,4 +1585,5 @@ if (!function_exists('renderGridTable')) {
     }
     </script>
 </body>
+
 </html>
