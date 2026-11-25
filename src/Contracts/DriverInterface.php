@@ -7,6 +7,7 @@ namespace HeliomarPM\DbPHP\Contracts;
 use Generator;
 use HeliomarPM\DbPHP\Results\PaginatedResult;
 use HeliomarPM\DbPHP\Results\QueryResult;
+use HeliomarPM\DbPHP\Results\SimplePaginatedResult;
 
 interface DriverInterface
 {
@@ -16,6 +17,29 @@ interface DriverInterface
      * @param array<int|string, mixed> $params
      */
     public function query(string $sql, array $params = []): QueryResult;
+
+    /**
+     * Retorna apenas a primeira linha da consulta ou null se não houver registros.
+     *
+     * @param array<int|string, mixed> $params
+     * @return array<string, mixed>|null
+     */
+    public function row(string $sql, array $params = []): ?array;
+
+    /**
+     * Retorna o valor escalar da primeira coluna da primeira linha ou $default se não houver registros.
+     *
+     * @param array<int|string, mixed> $params
+     */
+    public function scalar(string $sql, array $params = [], mixed $default = null): mixed;
+
+    /**
+     * Retorna uma lista com os valores de uma única coluna (por nome ou índice 0-based).
+     *
+     * @param array<int|string, mixed> $params
+     * @return list<mixed>
+     */
+    public function column(string $sql, array $params = [], int|string $column = 0): array;
 
     /**
      * Executa uma consulta de leitura em streaming linha a linha (memória constante O(1)).
@@ -31,6 +55,13 @@ interface DriverInterface
      * @param array<int|string, mixed> $params
      */
     public function paginate(string $sql, array $params = [], int $page = 1, int $perPage = 15): PaginatedResult;
+
+    /**
+     * Executa paginação simples em única consulta (LIMIT perPage + 1), sem COUNT(*).
+     *
+     * @param array<int|string, mixed> $params
+     */
+    public function simplePaginate(string $sql, array $params = [], int $page = 1, int $perPage = 15): SimplePaginatedResult;
 
     /**
      * Executa uma instrução de escrita (INSERT / UPDATE / DELETE / DDL) e retorna o número de linhas afetadas.

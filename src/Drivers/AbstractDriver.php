@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace HeliomarPM\DbPHP\Drivers;
 
+use BackedEnum;
+use DateTimeInterface;
 use HeliomarPM\DbPHP\Concerns\PaginatesQueries;
 use HeliomarPM\DbPHP\Config;
 use HeliomarPM\DbPHP\Contracts\DriverInterface;
 use HeliomarPM\DbPHP\Exceptions\QueryException;
 use HeliomarPM\DbPHP\Results\QueryResult;
 use HeliomarPM\DbPHP\Support\QueryLog;
+use Stringable;
 use Throwable;
 
 abstract class AbstractDriver implements DriverInterface
@@ -92,29 +95,81 @@ abstract class AbstractDriver implements DriverInterface
             return [$sql, []];
         }
 
+        $hasArray = false;
+        foreach ($params as $value) {
+            if (is_array($value)) {
+                $hasArray = true;
+                break;
+            }
+        }
+
+        $pattern = '/(
+            \'(?:[^\'\\\\]|\\\\.|\'\')*\'
+            |
+            "(?:[^"\\\\]|\\\\.|"")*"
+            |
+            `(?:[^`\\\\]|\\\\.|``)*`
+            |
+            (?:--|\#)[^\r\n]*
+            |
+            \/\*[\s\S]*?\*\/
+        )
+        |
+        (::|:=)
+        |
+        (?<!:):([a-zA-Z_][a-zA-Z0-9_]*)
+        /xs';
+
+        if ($hasArray) {
+            $orderedParams = [];
+            $translatedSql = preg_replace_callback(
+                $pattern,
+                static function (array $matches) use ($sql, $params, &$orderedParams): string {
+                    if (!empty($matches[1]) || !empty($matches[2])) {
+                        return $matches[0];
+                    }
+
+                    $key = $matches[3];
+                    $hasPlain = array_key_exists($key, $params);
+                    $hasColon = array_key_exists(":" . $key, $params);
+
+                    if (!$hasPlain && !$hasColon) {
+                        throw new QueryException("Parâmetro nomeado ':{$key}' não foi informado.", $sql, $params);
+                    }
+
+                    $val = $hasPlain ? $params[$key] : $params[":" . $key];
+
+                    if (is_array($val)) {
+                        if ($val === []) {
+                            throw new QueryException("O parâmetro de lista ':{$key}' não pode ser um array vazio.", $sql, $params);
+                        }
+
+                        foreach ($val as $item) {
+                            $orderedParams[] = $item;
+                        }
+
+                        return implode(", ", array_fill(0, count($val), "?"));
+                    }
+
+                    $orderedParams[] = $val;
+                    return "?";
+                },
+                $sql
+            );
+
+            if ($translatedSql === null) {
+                throw new QueryException("Erro ao processar parâmetros na consulta SQL: " . preg_last_error_msg(), $sql, $params);
+            }
+
+            return [$translatedSql, $orderedParams];
+        }
+
         if (isset(self::$namedSqlCache[$sql])) {
             $cached = self::$namedSqlCache[$sql];
             unset(self::$namedSqlCache[$sql]);
             self::$namedSqlCache[$sql] = $cached;
             [$translatedSql, $keyOrder] = $cached;
         } else {
-            $pattern = '/(
-                \'(?:[^\'\\\\]|\\\\.|\'\')*\'
-                |
-                "(?:[^"\\\\]|\\\\.|"")*"
-                |
-                `(?:[^`\\\\]|\\\\.|``)*`
-                |
-                (?:--|\#)[^\r\n]*
-                |
-                \/\*[\s\S]*?\*\/
-            )
-            |
-            (::|:=)
-            |
-            (?<!:):([a-zA-Z_][a-zA-Z0-9_]*)
-            /xs';
-
             $keyOrder = [];
             $translatedSql = preg_replace_callback(
                 $pattern,
@@ -154,6 +209,47 @@ abstract class AbstractDriver implements DriverInterface
         }
 
         return [$translatedSql, $orderedParams];
+    }
+
+    public function row(string $sql, array $params = []): ?array
+    {
+        $result = $this->query($sql, $params);
+
+        return $result->rows[0] ?? null;
+    }
+
+    public function scalar(string $sql, array $params = [], mixed $default = null): mixed
+    {
+        $row = $this->row($sql, $params);
+        if ($row === null || $row === []) {
+            return $default;
+        }
+
+        $firstKey = array_key_first($row);
+
+        return $row[$firstKey];
+    }
+
+    public function column(string $sql, array $params = [], int|string $column = 0): array
+    {
+        $result = $this->query($sql, $params);
+        if ($result->rows === []) {
+            return [];
+        }
+
+        if (is_string($column)) {
+            return array_column($result->rows, $column);
+        }
+
+        $values = [];
+        foreach ($result->rows as $row) {
+            $indexed = array_values($row);
+            if (array_key_exists($column, $indexed)) {
+                $values[] = $indexed[$column];
+            }
+        }
+
+        return $values;
     }
 
     public function query(string $sql, array $params = []): QueryResult
@@ -289,6 +385,16 @@ abstract class AbstractDriver implements DriverInterface
     public function isDebug(): bool
     {
         return $this->config->debug || QueryLog::isEnabled();
+    }
+
+    protected static function normalizeParamValue(mixed $value): mixed
+    {
+        return match (true) {
+            $value instanceof BackedEnum => $value->value,
+            $value instanceof DateTimeInterface => $value->format("Y-m-d H:i:s"),
+            $value instanceof Stringable => (string)$value,
+            default => $value,
+        };
     }
 
     protected function isCompatibleCollation(string $charset, string $collation): bool

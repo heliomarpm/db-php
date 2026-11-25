@@ -16,7 +16,8 @@ use mysqli_stmt;
 
 final class MysqliDriver extends AbstractDriver
 {
-    private ?mysqli $conn;
+    private ?mysqli $conn = null;
+    private bool $closed = false;
 
     /**
      * @var array<string, mysqli_stmt>
@@ -34,7 +35,14 @@ final class MysqliDriver extends AbstractDriver
             return;
         }
 
-        $this->connect();
+        if (!$this->config->lazy) {
+            $this->connect();
+        }
+    }
+
+    public function isConnected(): bool
+    {
+        return $this->conn !== null;
     }
 
 
@@ -118,6 +126,7 @@ final class MysqliDriver extends AbstractDriver
 
     public function close(): void
     {
+        $this->closed = true;
         $conn = $this->conn;
         if ($conn !== null) {
             $this->clearStatementCache();
@@ -231,6 +240,10 @@ final class MysqliDriver extends AbstractDriver
      */
     protected function assertConnected(): void
     {
+        if ($this->conn === null && $this->config->lazy && !$this->closed) {
+            $this->connect();
+        }
+
         if ($this->conn === null) {
             throw new ConnectionException("A conexão MySQLi está encerrada.");
         }
@@ -312,6 +325,7 @@ final class MysqliDriver extends AbstractDriver
         $types = "";
         $boundParams = [];
         foreach ($params as $param) {
+            $param = self::normalizeParamValue($param);
             $types .= match (true) {
                 is_bool($param) => "i",
                 is_int($param) => "i",

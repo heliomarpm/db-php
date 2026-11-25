@@ -32,6 +32,22 @@ trait HasResultHelpers
     }
 
     /**
+     * Verifica se o resultado está vazio.
+     */
+    public function isEmpty(): bool
+    {
+        return empty($this->getResultRows());
+    }
+
+    /**
+     * Verifica se o resultado possui registros.
+     */
+    public function isNotEmpty(): bool
+    {
+        return !empty($this->getResultRows());
+    }
+
+    /**
      * Retorna o primeiro registro que satisfaz o predicado ou o valor padrão.
      *
      * @param (callable(array<string, mixed>): bool)|null $predicate

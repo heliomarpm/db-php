@@ -126,4 +126,34 @@ final class DBTest extends TestCase
 
         $this->assertSame(["c1", "c2"], $keys);
     }
+
+    public function testStaticFacadeRowScalarColumnAndSimplePaginate(): void
+    {
+        DB::execute("INSERT INTO settings (key, value) VALUES (?, ?)", ["k1", "v1"]);
+        DB::execute("INSERT INTO settings (key, value) VALUES (?, ?)", ["k2", "v2"]);
+        DB::execute("INSERT INTO settings (key, value) VALUES (?, ?)", ["k3", "v3"]);
+
+        $row = DB::row("SELECT * FROM settings WHERE key = ?", ["k2"]);
+        $this->assertSame(["key" => "k2", "value" => "v2"], $row);
+        $this->assertNull(DB::row("SELECT * FROM settings WHERE key = ?", ["missing"]));
+
+        $count = DB::scalar("SELECT COUNT(*) FROM settings");
+        $this->assertSame(3, (int)$count);
+        $this->assertSame("fallback", DB::scalar("SELECT value FROM settings WHERE key = ?", ["missing"], "fallback"));
+
+        $this->assertSame(["k1", "k2", "k3"], DB::column("SELECT key, value FROM settings ORDER BY key ASC"));
+        $this->assertSame(["v1", "v2", "v3"], DB::column("SELECT key, value FROM settings ORDER BY key ASC", [], "value"));
+
+        $page1 = DB::simplePaginate("SELECT * FROM settings ORDER BY key ASC", page: 1, perPage: 2);
+        $this->assertSame(2, $page1->count());
+        $this->assertTrue($page1->hasMorePages);
+        $this->assertFalse($page1->hasPreviousPages);
+        $this->assertSame(1, $page1->from);
+        $this->assertSame(2, $page1->to);
+
+        $page2 = DB::simplePaginate("SELECT * FROM settings ORDER BY key ASC", page: 2, perPage: 2);
+        $this->assertSame(1, $page2->count());
+        $this->assertFalse($page2->hasMorePages);
+        $this->assertTrue($page2->hasPreviousPages);
+    }
 }

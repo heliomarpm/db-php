@@ -152,4 +152,15 @@ final class QueryResultTest extends TestCase
 
         $this->assertSame($rows, $collected);
     }
+
+    public function testIsEmptyAndIsNotEmpty(): void
+    {
+        $empty = new QueryResult([]);
+        $this->assertTrue($empty->isEmpty());
+        $this->assertFalse($empty->isNotEmpty());
+
+        $filled = new QueryResult([["id" => 1]]);
+        $this->assertFalse($filled->isEmpty());
+        $this->assertTrue($filled->isNotEmpty());
+    }
 }

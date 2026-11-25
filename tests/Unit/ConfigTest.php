@@ -108,4 +108,27 @@ final class ConfigTest extends TestCase
         $this->assertTrue($withDebug->debug);
         $this->assertSame(64, $withDebug->statementCacheSize);
     }
+
+    public function testLazyDsnAndForPgsqlFactories(): void
+    {
+        $default = new Config();
+        $this->assertFalse($default->lazy);
+        $this->assertNull($default->dsn);
+
+        $lazy = $default->withLazy(true);
+        $this->assertTrue($lazy->lazy);
+        $this->assertFalse($default->lazy);
+
+        $pgsql = Config::forPgsql("app_db", host: "db.local", port: 5433, username: "pg", password: "123", lazy: true);
+        $this->assertSame("pgsql", $pgsql->driver);
+        $this->assertSame("db.local", $pgsql->host);
+        $this->assertSame(5433, $pgsql->port);
+        $this->assertSame("app_db", $pgsql->database);
+        $this->assertTrue($pgsql->lazy);
+
+        $dsn = Config::forDsn("sqlite::memory:", debug: true, lazy: true);
+        $this->assertSame("sqlite::memory:", $dsn->dsn);
+        $this->assertTrue($dsn->debug);
+        $this->assertTrue($dsn->lazy);
+    }
 }

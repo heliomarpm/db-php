@@ -1,7 +1,7 @@
 # Backlog do Projeto: heliomarpm/db-php
 
 > **Meta:** Excelência em performance de execução, código limpo, manutenibilidade e ergonomia da biblioteca db-php (v1.2+)\
-> **Status:** em andamento | **Progresso:** 30/32 (93%) | **WIP:** 0/2 | **Atualizado em:** 2026-11-25
+> **Status:** concluído | **Progresso:** 32/32 (100%) | **WIP:** 0/0 | **Atualizado em:** 2026-11-25
 
 ## Em progresso
 
@@ -19,17 +19,14 @@
 
 ### Baixa Prioridade (Horizonte 3: Polimento & Expansão)
 
-- [ ] **T-031 · P2 · Adicionar atalhos ergonômicos (row, scalar, column, simplePaginate), expansão IN (:array) e bind de Enums/Datas**
-  - Origem: `code-review` | Dependências: `T-023`, `T-028`
-  - Referências: [DriverInterface.php](../src/Contracts/DriverInterface.php), [DB.php](../src/DB.php), [HasResultHelpers.php](../src/Concerns/HasResultHelpers.php), [PaginatesQueries.php](../src/Concerns/PaginatesQueries.php), [AbstractDriver.php](../src/Drivers/AbstractDriver.php)
-  - Critérios de aceite (DoD): Implementar `row(): ?array`, `scalar(): mixed`, `column(): array` e `simplePaginate()` (paginação em 1 query sem `COUNT(*)`) nos contratos e fachada `DB`, mover `isEmpty()`/`isNotEmpty()` para `HasResultHelpers`, expandir listas não vazias em placeholders nomeados `IN (:ids)` e normalizar `BackedEnum`, `DateTimeInterface` e `Stringable` nos binds, com testes e exemplos no `README.md`.
-- [ ] **T-032 · P3 · Suportar conexão lazy opcional e expandir PdoDriver para PostgreSQL e DSN customizado**
-  - Origem: `code-review` | Dependências: `T-025`, `T-029`
-  - Referências: [Config.php](../src/Config.php), [DB.php](../src/DB.php#L28-L41), [PdoDriver.php](../src/Drivers/PdoDriver.php#L19-L31), [MysqliDriver.php](../src/Drivers/MysqliDriver.php#L21-L33)
-  - Critérios de aceite (DoD): Adicionar `lazy: bool = false` e `dsn: ?string = null` em `Config` (adiando a conexão física até a primeira query quando `lazy = true`), adicionar `Config::forPgsql()` / `DB::pgsql()` e suporte ao driver `pgsql`/DSN explícito em `DB::connect()` e `PdoDriver::connect()`, mantendo 100% de retrocompatibilidade.
+*(Todas as tarefas do backlog foram concluídas com sucesso)*
 
 ## Concluídas recentemente
 
+- [x] **T-032 · P3 · Suportar conexão lazy opcional e expandir PdoDriver para PostgreSQL e DSN customizado** (2026-11-25)
+  - Evidência: Adicionados `lazy: bool = false` e `dsn: ?string = null`, `withLazy()`, `Config::forPgsql()` e `Config::forDsn()` em `Config.php`; suporte a `pgsql`/`postgres` e `DB::pgsql()` em `DB.php` e `PdoDriver.php`; conexão sob demanda (`isConnected()`) em `PdoDriver` e `MysqliDriver`. `composer check` 100% verde (Pint, PHPStan Nível 8 com 0 erros em 25 arquivos, PHPUnit 86 testes / 465 asserções).
+- [x] **T-031 · P2 · Adicionar atalhos ergonômicos (row, scalar, column, simplePaginate), expansão IN (:array) e bind de Enums/Datas** (2026-11-25)
+  - Evidência: Criado `SimplePaginatedResult.php`, movidos `isEmpty()`/`isNotEmpty()` para `HasResultHelpers.php`, implementados `row()`, `scalar()`, `column()` e `simplePaginate()` em `DriverInterface`, `AbstractDriver`, `PaginatesQueries` e `DB`; adicionada expansão de listas `IN (:ids)` e normalização de `BackedEnum`, `DateTimeInterface` e `Stringable` nos binds; documentado no `README.md` e coberto em `DBTest`, `QueryResultTest`, `PdoDriverTest` e `MysqliDriverTest`.
 - [x] **T-030 · P2 · Padronizar regras do Pint (aspas duplas e strict_types), composer.json e documentação de DI** (2026-11-25)
   - Evidência: Habilitado `"declare_strict_types": true` em `pint.json`, padronizadas aspas duplas em `QueryResult.php` e `PaginatedResult.php`, corrigida descrição e declaradas `ext-json`, `ext-pdo` e `ext-mysqli` em `composer.json`, atualizada badge `v1.2.0` em `demo/index.php` e documentada Injeção de Dependência (`DriverInterface`) + `DB::cursor()` no `README.md`.
 - [x] **T-029 · P2 · Unificar ciclo de execução em AbstractDriver com hrtime(true) e isolar countAffected()** (2026-11-25)

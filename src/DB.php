@@ -12,6 +12,7 @@ use HeliomarPM\DbPHP\Drivers\PdoDriver;
 use HeliomarPM\DbPHP\Exceptions\ConnectionException;
 use HeliomarPM\DbPHP\Results\PaginatedResult;
 use HeliomarPM\DbPHP\Results\QueryResult;
+use HeliomarPM\DbPHP\Results\SimplePaginatedResult;
 use HeliomarPM\DbPHP\Support\QueryLog;
 use HeliomarPM\DbPHP\Support\QueryRecord;
 use InvalidArgumentException;
@@ -32,7 +33,7 @@ final class DB
         $configObj = is_array($config) ? Config::fromArray($config) : $config;
 
         $driver = match (strtolower($configObj->driver)) {
-            "pdo", "sqlite", "mysql" => new PdoDriver($configObj),
+            "pdo", "sqlite", "mysql", "pgsql", "postgres" => new PdoDriver($configObj),
             "mysqli" => new MysqliDriver($configObj),
             default => throw new InvalidArgumentException("Driver não suportado: {$configObj->driver}"),
         };
@@ -92,6 +93,38 @@ final class DB
     }
 
     /**
+     * Retorna apenas a primeira linha da consulta ou null se não houver registros.
+     *
+     * @param array<int|string, mixed> $params
+     * @return array<string, mixed>|null
+     */
+    public static function row(string $sql, array $params = []): ?array
+    {
+        return self::connection()->row($sql, $params);
+    }
+
+    /**
+     * Retorna o valor escalar da primeira coluna da primeira linha ou $default se não houver registros.
+     *
+     * @param array<int|string, mixed> $params
+     */
+    public static function scalar(string $sql, array $params = [], mixed $default = null): mixed
+    {
+        return self::connection()->scalar($sql, $params, $default);
+    }
+
+    /**
+     * Retorna uma lista com os valores de uma única coluna (por nome ou índice 0-based).
+     *
+     * @param array<int|string, mixed> $params
+     * @return list<mixed>
+     */
+    public static function column(string $sql, array $params = [], int|string $column = 0): array
+    {
+        return self::connection()->column($sql, $params, $column);
+    }
+
+    /**
      * Executa uma consulta de leitura em streaming linha a linha (memória constante O(1)).
      *
      * @param array<int|string, mixed> $params
@@ -110,6 +143,16 @@ final class DB
     public static function paginate(string $sql, array $params = [], int $page = 1, int $perPage = 15): PaginatedResult
     {
         return self::connection()->paginate($sql, $params, $page, $perPage);
+    }
+
+    /**
+     * Executa paginação simples em única consulta (LIMIT perPage + 1), sem COUNT(*).
+     *
+     * @param array<int|string, mixed> $params
+     */
+    public static function simplePaginate(string $sql, array $params = [], int $page = 1, int $perPage = 15): SimplePaginatedResult
+    {
+        return self::connection()->simplePaginate($sql, $params, $page, $perPage);
     }
 
     /**
@@ -194,6 +237,28 @@ final class DB
         );
 
         return self::connect($config, $name);
+    }
+
+    public static function pgsql(
+        string $database,
+        string $host = "127.0.0.1",
+        int $port = 5432,
+        string $username = "postgres",
+        string $password = "",
+        string $name = "default",
+        bool $lazy = false
+    ): DriverInterface {
+        return self::connect(
+            Config::forPgsql(
+                database: $database,
+                host: $host,
+                port: $port,
+                username: $username,
+                password: $password,
+                lazy: $lazy
+            ),
+            $name
+        );
     }
 
     public static function disconnect(?string $name = null): void

@@ -89,22 +89,6 @@ final readonly class PaginatedResult implements Countable, IteratorAggregate, Js
     }
 
     /**
-     * Verifica se a página atual está vazia.
-     */
-    public function isEmpty(): bool
-    {
-        return empty($this->items);
-    }
-
-    /**
-     * Verifica se a página atual possui itens.
-     */
-    public function isNotEmpty(): bool
-    {
-        return ! empty($this->items);
-    }
-
-    /**
      * @return Traversable<int, array<string, mixed>>
      */
     public function getIterator(): Traversable

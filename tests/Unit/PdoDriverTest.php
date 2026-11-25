@@ -4,13 +4,16 @@ declare(strict_types=1);
 
 namespace HeliomarPM\DbPHP\Tests\Unit;
 
+use DateTimeImmutable;
 use HeliomarPM\DbPHP\Config;
 use HeliomarPM\DbPHP\Contracts\DriverInterface;
 use HeliomarPM\DbPHP\Drivers\PdoDriver;
+use HeliomarPM\DbPHP\Exceptions\ConnectionException;
 use HeliomarPM\DbPHP\Exceptions\QueryException;
 use HeliomarPM\DbPHP\Support\QueryLog;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
+use Stringable;
 
 final class PdoDriverTest extends TestCase
 {
@@ -427,4 +430,87 @@ final class PdoDriverTest extends TestCase
             $cachedDriver->close();
         }
     }
+
+    public function testInArrayExpansionAndDomainTypeBindings(): void
+    {
+        $this->driver->execute("CREATE TABLE orders (id INTEGER PRIMARY KEY, status TEXT, created_at TEXT)");
+        $statusEnum = TestOrderStatus::Paid;
+        $date = new DateTimeImmutable("2026-11-25 10:30:00");
+        $label = new class () implements Stringable {
+            public function __toString(): string
+            {
+                return "Pedido VIP";
+            }
+        };
+
+        $this->driver->execute("INSERT INTO orders (id, status, created_at) VALUES (:id, :status, :dt)", [
+            "id" => 10,
+            "status" => $statusEnum,
+            "dt" => $date,
+        ]);
+        $this->driver->execute("INSERT INTO orders (id, status, created_at) VALUES (?, ?, ?)", [
+            20,
+            $label,
+            $date,
+        ]);
+        $this->driver->execute("INSERT INTO orders (id, status, created_at) VALUES (?, ?, ?)", [
+            30,
+            "cancelled",
+            $date,
+        ]);
+
+        $res = $this->driver->query(
+            "SELECT id, status FROM orders WHERE id IN (:ids) AND status != :excluded ORDER BY id ASC",
+            ["ids" => [10, 20], "excluded" => "cancelled"]
+        );
+        $this->assertSame(2, $res->count);
+        $this->assertSame("paid", $res->rows[0]["status"]);
+        $this->assertSame("Pedido VIP", $res->rows[1]["status"]);
+
+        $this->expectException(QueryException::class);
+        $this->expectExceptionMessage("array vazio");
+        $this->driver->query("SELECT * FROM orders WHERE id IN (:ids)", ["ids" => []]);
+    }
+
+    public function testSimplePaginateExecutesSingleQuery(): void
+    {
+        for ($i = 1; $i <= 5; $i++) {
+            $this->driver->execute("INSERT INTO users (name, email) VALUES (?, ?)", ["S{$i}", "s{$i}@test.com"]);
+        }
+
+        QueryLog::reset();
+        QueryLog::enable();
+
+        try {
+            $simple = $this->driver->simplePaginate("SELECT * FROM users ORDER BY id ASC", page: 1, perPage: 3);
+            $this->assertSame(3, $simple->count());
+            $this->assertTrue($simple->hasMorePages);
+            $this->assertCount(1, QueryLog::all());
+        } finally {
+            QueryLog::reset();
+            QueryLog::disable();
+        }
+    }
+
+    public function testLazyConnectionAndCustomDsn(): void
+    {
+        $lazyDriver = new PdoDriver(Config::forDsn("sqlite::memory:", lazy: true));
+        $this->assertFalse($lazyDriver->isConnected());
+
+        $num = $lazyDriver->scalar("SELECT 99");
+        $this->assertSame(99, (int)$num);
+        $this->assertTrue($lazyDriver->isConnected());
+
+        $lazyDriver->close();
+        $this->assertFalse($lazyDriver->isConnected());
+
+        $this->expectException(ConnectionException::class);
+        $lazyDriver->query("SELECT 1");
+    }
+}
+
+enum TestOrderStatus: string
+{
+    case Paid = "paid";
+    case Pending = "pending";
 }

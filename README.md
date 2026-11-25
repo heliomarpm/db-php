@@ -120,6 +120,25 @@ foreach (DB::cursor("SELECT id_produto, nome_produto FROM produtos ORDER BY id_p
 }
 ```
 
+#### 1.3 Atalhos Ergonômicos, Listas `IN (:ids)` e Conexão Lazy / PostgreSQL
+```php
+// Atalhos diretos sem precisar navegar em QueryResult:
+$usuario = DB::row("SELECT * FROM clientes WHERE id_cliente = :id", ["id" => 1]);
+$total   = (int)DB::scalar("SELECT COUNT(*) FROM produtos");
+$nomes   = DB::column("SELECT nome_produto FROM produtos ORDER BY preco DESC");
+
+// Expansão automática de arrays em cláusulas IN (:ids) + BackedEnum / DateTimeInterface:
+$produtos = DB::query("SELECT * FROM produtos WHERE id_produto IN (:ids)", [
+    "ids" => [101, 102, 105],
+]);
+
+// Paginação simples em 1 query (sem COUNT(*)):
+$simples = DB::simplePaginate("SELECT * FROM produtos ORDER BY id_produto", page: 1, perPage: 10);
+
+// Conexão Lazy (abre somente na primeira consulta) e PostgreSQL:
+DB::pgsql("minha_base", username: "postgres", password: "secret", lazy: true);
+```
+
 ---
 
 ### 2. Consultas (`SELECT`) e Parâmetros Seguros

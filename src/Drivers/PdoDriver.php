@@ -14,7 +14,8 @@ use PDOStatement;
 
 final class PdoDriver extends AbstractDriver
 {
-    private ?PDO $pdo;
+    private ?PDO $pdo = null;
+    private bool $closed = false;
 
     /**
      * @var array<string, PDOStatement>
@@ -32,7 +33,14 @@ final class PdoDriver extends AbstractDriver
             return;
         }
 
-        $this->connect();
+        if (!$this->config->lazy) {
+            $this->connect();
+        }
+    }
+
+    public function isConnected(): bool
+    {
+        return $this->pdo !== null;
     }
 
     /**
@@ -103,6 +111,7 @@ final class PdoDriver extends AbstractDriver
 
     public function close(): void
     {
+        $this->closed = true;
         $pdo = $this->pdo;
         if ($pdo !== null) {
             $this->clearStatementCache();
@@ -177,6 +186,10 @@ final class PdoDriver extends AbstractDriver
      */
     protected function assertConnected(): void
     {
+        if ($this->pdo === null && $this->config->lazy && !$this->closed) {
+            $this->connect();
+        }
+
         if ($this->pdo === null) {
             throw new ConnectionException("A conexão com o banco de dados está encerrada.");
         }
@@ -228,15 +241,29 @@ final class PdoDriver extends AbstractDriver
         }
 
         try {
-            $isSqlite = strtolower($this->config->driver) === "sqlite"
+            $driverLower = strtolower($this->config->driver);
+            $hasCustomDsn = $this->config->dsn !== null && $this->config->dsn !== "";
+
+            $isSqlite = !$hasCustomDsn && (
+                $driverLower === "sqlite"
                 || $this->config->database === ":memory:"
                 || str_ends_with(strtolower($this->config->database), ".sqlite")
                 || str_ends_with(strtolower($this->config->database), ".sqlite3")
-                || str_ends_with(strtolower($this->config->database), ".db");
+                || str_ends_with(strtolower($this->config->database), ".db")
+            );
 
-            if ($isSqlite) {
+            if ($hasCustomDsn) {
+                $this->pdo = new PDO((string)$this->config->dsn, $this->config->username, $this->config->password, $options);
+            } elseif ($isSqlite) {
                 $dsn = "sqlite:{$this->config->database}";
                 $this->pdo = new PDO($dsn, null, null, $options);
+            } elseif (in_array($driverLower, ["pgsql", "postgres"], true)) {
+                $dsn = "pgsql:host={$this->config->host};port={$this->config->port};dbname={$this->config->database}";
+                $this->pdo = new PDO($dsn, $this->config->username, $this->config->password, $options);
+
+                if (preg_match("/^[a-zA-Z0-9_\\-]+$/", $this->config->charset) === 1) {
+                    $this->pdo->exec("SET NAMES '{$this->config->charset}'");
+                }
             } else {
                 $dsn = "mysql:host={$this->config->host};port={$this->config->port};dbname={$this->config->database};charset={$this->config->charset}";
                 $this->pdo = new PDO($dsn, $this->config->username, $this->config->password, $options);
@@ -260,6 +287,7 @@ final class PdoDriver extends AbstractDriver
         $stmt = $this->getPreparedStatement($sql, $cacheable);
 
         foreach ($params as $key => $value) {
+            $value = self::normalizeParamValue($value);
             $paramType = match (true) {
                 is_int($value) => PDO::PARAM_INT,
                 is_bool($value) => PDO::PARAM_BOOL,

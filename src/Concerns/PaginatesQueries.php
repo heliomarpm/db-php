@@ -6,6 +6,7 @@ namespace HeliomarPM\DbPHP\Concerns;
 
 use HeliomarPM\DbPHP\Results\PaginatedResult;
 use HeliomarPM\DbPHP\Results\QueryResult;
+use HeliomarPM\DbPHP\Results\SimplePaginatedResult;
 
 trait PaginatesQueries
 {
@@ -67,6 +68,53 @@ trait PaginatesQueries
             total: $total,
             perPage: $validPerPage,
             currentPage: $validPage,
+            elapsedTime: $elapsedTime
+        );
+    }
+
+    /**
+     * Executa paginação simples em única consulta (LIMIT perPage + 1), sem COUNT(*).
+     *
+     * @param array<int|string, mixed> $params
+     */
+    public function simplePaginate(string $sql, array $params = [], int $page = 1, int $perPage = 15): SimplePaginatedResult
+    {
+        $validPage = max(1, $page);
+        $validPerPage = max(1, $perPage);
+        $offset = ($validPage - 1) * $validPerPage;
+        $startNs = hrtime(true);
+
+        $cleanSql = rtrim(trim($sql), ";");
+        $baseSql = $this->hasTopLevelLimit($cleanSql)
+            ? "SELECT * FROM ({$cleanSql}) AS paginated_subquery"
+            : $cleanSql;
+
+        $fetchLimit = $validPerPage + 1;
+
+        if (empty($params) || array_is_list($params)) {
+            $paginatedSql = "{$baseSql} LIMIT ? OFFSET ?";
+            $paginatedParams = [...$params, $fetchLimit, $offset];
+        } else {
+            $paginatedSql = "{$baseSql} LIMIT :__db_limit__ OFFSET :__db_offset__";
+            $paginatedParams = $params;
+            $paginatedParams["__db_limit__"] = $fetchLimit;
+            $paginatedParams["__db_offset__"] = $offset;
+        }
+
+        $queryResult = $this->query($paginatedSql, $paginatedParams);
+        $elapsedTime = (hrtime(true) - $startNs) / 1e9;
+
+        $rows = $queryResult->rows;
+        $hasMore = count($rows) > $validPerPage;
+        if ($hasMore) {
+            $rows = array_slice($rows, 0, $validPerPage);
+        }
+
+        return new SimplePaginatedResult(
+            items: $rows,
+            perPage: $validPerPage,
+            currentPage: $validPage,
+            hasMorePages: $hasMore,
             elapsedTime: $elapsedTime
         );
     }

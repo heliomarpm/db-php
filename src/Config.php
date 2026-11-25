@@ -20,7 +20,9 @@ final readonly class Config
         public string $collation = "utf8mb4_unicode_ci",
         public array $options = [],
         public bool $debug = false,
-        public int $statementCacheSize = 0
+        public int $statementCacheSize = 0,
+        public bool $lazy = false,
+        public ?string $dsn = null
     ) {}
 
     /**
@@ -41,7 +43,9 @@ final readonly class Config
             collation: (string)($data["collation"] ?? "utf8mb4_unicode_ci"),
             options: (array)($data["options"] ?? []),
             debug: (bool)($data["debug"] ?? false),
-            statementCacheSize: max(0, (int)($data["statement_cache_size"] ?? $data["statementCacheSize"] ?? 0))
+            statementCacheSize: max(0, (int)($data["statement_cache_size"] ?? $data["statementCacheSize"] ?? 0)),
+            lazy: (bool)($data["lazy"] ?? false),
+            dsn: isset($data["dsn"]) ? (string)$data["dsn"] : null
         );
     }
 
@@ -87,6 +91,52 @@ final readonly class Config
     }
 
     /**
+     * Cria configuração para PostgreSQL (via PDO pgsql).
+     */
+    public static function forPgsql(
+        string $database,
+        string $host = "127.0.0.1",
+        int $port = 5432,
+        string $username = "postgres",
+        string $password = "",
+        string $charset = "utf8",
+        bool $debug = false,
+        bool $lazy = false
+    ): self {
+        return new self(
+            driver: "pgsql",
+            host: $host,
+            port: $port,
+            database: $database,
+            username: $username,
+            password: $password,
+            charset: $charset,
+            debug: $debug,
+            lazy: $lazy
+        );
+    }
+
+    /**
+     * Cria configuração a partir de um DSN PDO explícito.
+     */
+    public static function forDsn(
+        string $dsn,
+        ?string $username = null,
+        ?string $password = null,
+        bool $debug = false,
+        bool $lazy = false
+    ): self {
+        return new self(
+            driver: "pdo",
+            username: $username,
+            password: $password,
+            debug: $debug,
+            lazy: $lazy,
+            dsn: $dsn
+        );
+    }
+
+    /**
      * Retorna uma nova instância de configuração com o modo debug alterado.
      */
     public function withDebug(bool $debug = true): self
@@ -102,7 +152,9 @@ final readonly class Config
             collation: $this->collation,
             options: $this->options,
             debug: $debug,
-            statementCacheSize: $this->statementCacheSize
+            statementCacheSize: $this->statementCacheSize,
+            lazy: $this->lazy,
+            dsn: $this->dsn
         );
     }
 
@@ -122,7 +174,31 @@ final readonly class Config
             collation: $this->collation,
             options: $this->options,
             debug: $this->debug,
-            statementCacheSize: max(0, $size)
+            statementCacheSize: max(0, $size),
+            lazy: $this->lazy,
+            dsn: $this->dsn
+        );
+    }
+
+    /**
+     * Retorna uma nova instância de configuração com conexão lazy ativada ou desativada.
+     */
+    public function withLazy(bool $lazy = true): self
+    {
+        return new self(
+            driver: $this->driver,
+            host: $this->host,
+            port: $this->port,
+            database: $this->database,
+            username: $this->username,
+            password: $this->password,
+            charset: $this->charset,
+            collation: $this->collation,
+            options: $this->options,
+            debug: $this->debug,
+            statementCacheSize: $this->statementCacheSize,
+            lazy: $lazy,
+            dsn: $this->dsn
         );
     }
 }

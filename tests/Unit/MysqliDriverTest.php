@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace HeliomarPM\DbPHP\Tests\Unit;
 
+use DateTimeImmutable;
 use HeliomarPM\DbPHP\Config;
 use HeliomarPM\DbPHP\Contracts\DriverInterface;
 use HeliomarPM\DbPHP\Drivers\MysqliDriver;
@@ -11,6 +12,7 @@ use HeliomarPM\DbPHP\Exceptions\ConnectionException;
 use HeliomarPM\DbPHP\Exceptions\QueryException;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
+use Stringable;
 use Throwable;
 
 final class MysqliDriverTest extends TestCase
@@ -574,6 +576,47 @@ final class MysqliDriverTest extends TestCase
             $this->assertSame(1, $cachedDriver->countAffected());
         } finally {
             $cachedDriver->close();
+        }
+    }
+
+    public function testInArrayExpansionShortcutsAndLazyConnection(): void
+    {
+        $this->assertNotNull($this->driver);
+        $cfg = $this->driver->getConfig()->withLazy(true);
+
+        $lazyDriver = new MysqliDriver($cfg);
+        $this->assertFalse($lazyDriver->isConnected());
+
+        try {
+            $lazyDriver->execute("CREATE TEMPORARY TABLE test_h3 (id INT PRIMARY KEY, tag VARCHAR(50), created_at DATETIME)");
+            $this->assertTrue($lazyDriver->isConnected());
+
+            $dt = new DateTimeImmutable("2026-11-25 08:00:00");
+            $tag = new class () implements Stringable {
+                public function __toString(): string
+                {
+                    return "vip";
+                }
+            };
+
+            $lazyDriver->execute("INSERT INTO test_h3 (id, tag, created_at) VALUES (?, ?, ?)", [1, $tag, $dt]);
+            $lazyDriver->execute("INSERT INTO test_h3 (id, tag, created_at) VALUES (?, ?, ?)", [2, "common", $dt]);
+
+            $ids = $lazyDriver->column("SELECT id FROM test_h3 WHERE id IN (:ids) ORDER BY id ASC", ["ids" => [1, 2]]);
+            $this->assertSame([1, 2], $ids);
+
+            $row = $lazyDriver->row("SELECT tag FROM test_h3 WHERE id = :id", ["id" => 1]);
+            $this->assertSame(["tag" => "vip"], $row);
+
+            $scalar = $lazyDriver->scalar("SELECT COUNT(*) FROM test_h3");
+            $this->assertSame(2, $scalar);
+
+            $simple = $lazyDriver->simplePaginate("SELECT * FROM test_h3 ORDER BY id ASC", page: 1, perPage: 1);
+            $this->assertSame(1, $simple->count());
+            $this->assertTrue($simple->hasMorePages);
+        } finally {
+            $lazyDriver->close();
+            $this->assertFalse($lazyDriver->isConnected());
         }
     }
 }
