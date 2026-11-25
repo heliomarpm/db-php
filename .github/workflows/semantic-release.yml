@@ -6,6 +6,11 @@ on:
       - main
     paths-ignore:
       - 'CHANGELOG.md'
+      - 'demo/**'
+      - 'api/**'
+      - 'vercel.json'
+      - '.vercelignore'
+      - '.agents/**'
   workflow_dispatch:
     inputs:
       strict-mode:
