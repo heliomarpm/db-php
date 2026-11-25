@@ -1449,6 +1449,50 @@ if (!function_exists('renderGridTable')) {
         </section>
         <?php endif; ?>
 
+        <!-- BOAS PRÁTICAS & DICAS DE PERFORMANCE -->
+        <section class="mt-4">
+            <div class="bg-card border border-secondary border-opacity-25 rounded-3 p-4">
+                <div class="d-flex align-items-center gap-2 mb-3">
+                    <i class="bi bi-lightbulb-fill text-orange fs-5"></i>
+                    <h2 class="h6 mb-0 text-white font-mono fw-bold">Boas Práticas &amp; Dicas de Performance</h2>
+                </div>
+                <div class="row g-3 small text-secondary">
+                    <div class="col-md-6">
+                        <div class="p-3 bg-dark rounded-3 border border-secondary border-opacity-25 h-100">
+                            <div class="text-cyan fw-semibold font-mono mb-1">
+                                <i class="bi bi-lightning-charge me-1"></i>Cache LRU de Statements
+                            </div>
+                            Em loops e APIs de alto tráfego, ative <code>->withStatementCacheSize(64)</code> na <code>Config</code> para reutilizar prepared statements sem novos round-trips de <code>PREPARE</code>.
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="p-3 bg-dark rounded-3 border border-secondary border-opacity-25 h-100">
+                            <div class="text-cyan fw-semibold font-mono mb-1">
+                                <i class="bi bi-water me-1"></i>Streaming &amp; Paginação Leve
+                            </div>
+                            Use <code>DB::cursor()</code> para grandes volumes em memória <code>O(1)</code> e <code>DB::simplePaginate()</code> quando não precisar da query extra de <code>COUNT(*)</code>.
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="p-3 bg-dark rounded-3 border border-secondary border-opacity-25 h-100">
+                            <div class="text-cyan fw-semibold font-mono mb-1">
+                                <i class="bi bi-plug me-1"></i>Conexão Lazy &amp; Debug em Produção
+                            </div>
+                            Use <code>lazy: true</code> em apps multi-conexão para abrir sockets apenas sob demanda e mantenha <code>DB::setDebug(false)</code> em produção (overhead zero).
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="p-3 bg-dark rounded-3 border border-secondary border-opacity-25 h-100">
+                            <div class="text-orange fw-semibold font-mono mb-1">
+                                <i class="bi bi-info-circle me-1"></i>Nota sobre Exceções
+                            </div>
+                            <code>QueryException</code> preserva SQL, código do driver e parâmetros originais para facilitar o diagnóstico; filtre na camada da aplicação antes de expor logs ou respostas HTTP.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
         <!-- FOOTER -->
         <footer class="text-center text-secondary small mt-5 pt-4 border-top border-secondary border-opacity-25">
             <p class="mb-1">

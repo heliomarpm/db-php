@@ -11,6 +11,16 @@ use HeliomarPM\DbPHP\Results\SimplePaginatedResult;
 trait PaginatesQueries
 {
     /**
+     * @var array<string, string>
+     */
+    private static array $orderByCache = [];
+
+    /**
+     * @var array<string, bool>
+     */
+    private static array $limitCache = [];
+
+    /**
      * Executa uma consulta de leitura.
      *
      * @param array<int|string, mixed> $params
@@ -126,6 +136,14 @@ trait PaginatesQueries
      */
     public function removeTrailingOrderBy(string $sql): string
     {
+        if (stripos($sql, "order") === false) {
+            return $sql;
+        }
+
+        if (isset(self::$orderByCache[$sql])) {
+            return self::$orderByCache[$sql];
+        }
+
         $len = strlen($sql);
         $depth = 0;
         $inQuote = false;
@@ -186,24 +204,37 @@ trait PaginatesQueries
             }
         }
 
+        $result = $sql;
         if ($lastOrderByPos !== null) {
             $trailing = substr($sql, $lastOrderByPos);
-            if ($this->containsPlaceholderOrLimitOutsideLiterals($trailing)) {
-                return $sql;
+            if (!$this->containsPlaceholderOrLimitOutsideLiterals($trailing)) {
+                $result = rtrim(substr($sql, 0, $lastOrderByPos));
             }
-
-            return rtrim(substr($sql, 0, $lastOrderByPos));
         }
 
-        return $sql;
+        if (count(self::$orderByCache) >= 256) {
+            array_shift(self::$orderByCache);
+        }
+        self::$orderByCache[$sql] = $result;
+
+        return $result;
     }
 
     private function hasTopLevelLimit(string $sql): bool
     {
+        if (stripos($sql, "limit") === false) {
+            return false;
+        }
+
+        if (isset(self::$limitCache[$sql])) {
+            return self::$limitCache[$sql];
+        }
+
         $len = strlen($sql);
         $depth = 0;
         $inQuote = false;
         $quoteChar = "";
+        $found = false;
 
         for ($i = 0; $i < $len; $i++) {
             $char = $sql[$i];
@@ -255,11 +286,17 @@ trait PaginatesQueries
                 && ($i === 0 || ctype_space($sql[$i - 1]) || $sql[$i - 1] === ")")
                 && preg_match('/\GLIMIT\b/i', $sql, $matches, 0, $i) === 1
             ) {
-                return true;
+                $found = true;
+                break;
             }
         }
 
-        return false;
+        if (count(self::$limitCache) >= 256) {
+            array_shift(self::$limitCache);
+        }
+        self::$limitCache[$sql] = $found;
+
+        return $found;
     }
 
     private function containsPlaceholderOrLimitOutsideLiterals(string $sqlFragment): bool

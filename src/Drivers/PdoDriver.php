@@ -142,16 +142,16 @@ final class PdoDriver extends AbstractDriver
     ): array {
         try {
             $stmt = $this->prepareStatement($resolvedSql, $resolvedParams);
-            try {
-                $stmt->execute();
+            $stmt->execute();
 
-                /** @var array<int, array<string, mixed>> $rows */
-                $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            /** @var array<int, array<string, mixed>> $rows */
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-                return $rows;
-            } finally {
+            if ($this->config->statementCacheSize > 0) {
                 $stmt->closeCursor();
             }
+
+            return $rows;
         } catch (PDOException $e) {
             throw new QueryException($e->getMessage(), $originalSql, $originalParams, $e->getCode(), $e);
         }
@@ -169,13 +169,14 @@ final class PdoDriver extends AbstractDriver
     ): int {
         try {
             $stmt = $this->prepareStatement($resolvedSql, $resolvedParams);
-            try {
-                $stmt->execute();
+            $stmt->execute();
+            $rowCount = $stmt->rowCount();
 
-                return $stmt->rowCount();
-            } finally {
+            if ($this->config->statementCacheSize > 0) {
                 $stmt->closeCursor();
             }
+
+            return $rowCount;
         } catch (PDOException $e) {
             throw new QueryException($e->getMessage(), $originalSql, $originalParams, $e->getCode(), $e);
         }
@@ -287,7 +288,9 @@ final class PdoDriver extends AbstractDriver
         $stmt = $this->getPreparedStatement($sql, $cacheable);
 
         foreach ($params as $key => $value) {
-            $value = self::normalizeParamValue($value);
+            if (is_object($value)) {
+                $value = self::normalizeParamValue($value);
+            }
             $paramType = match (true) {
                 is_int($value) => PDO::PARAM_INT,
                 is_bool($value) => PDO::PARAM_BOOL,

@@ -95,81 +95,26 @@ abstract class AbstractDriver implements DriverInterface
             return [$sql, []];
         }
 
-        $hasArray = false;
-        foreach ($params as $value) {
-            if (is_array($value)) {
-                $hasArray = true;
-                break;
-            }
-        }
-
-        $pattern = '/(
-            \'(?:[^\'\\\\]|\\\\.|\'\')*\'
-            |
-            "(?:[^"\\\\]|\\\\.|"")*"
-            |
-            `(?:[^`\\\\]|\\\\.|``)*`
-            |
-            (?:--|\#)[^\r\n]*
-            |
-            \/\*[\s\S]*?\*\/
-        )
-        |
-        (::|:=)
-        |
-        (?<!:):([a-zA-Z_][a-zA-Z0-9_]*)
-        /xs';
-
-        if ($hasArray) {
-            $orderedParams = [];
-            $translatedSql = preg_replace_callback(
-                $pattern,
-                static function (array $matches) use ($sql, $params, &$orderedParams): string {
-                    if (!empty($matches[1]) || !empty($matches[2])) {
-                        return $matches[0];
-                    }
-
-                    $key = $matches[3];
-                    $hasPlain = array_key_exists($key, $params);
-                    $hasColon = array_key_exists(":" . $key, $params);
-
-                    if (!$hasPlain && !$hasColon) {
-                        throw new QueryException("Parâmetro nomeado ':{$key}' não foi informado.", $sql, $params);
-                    }
-
-                    $val = $hasPlain ? $params[$key] : $params[":" . $key];
-
-                    if (is_array($val)) {
-                        if ($val === []) {
-                            throw new QueryException("O parâmetro de lista ':{$key}' não pode ser um array vazio.", $sql, $params);
-                        }
-
-                        foreach ($val as $item) {
-                            $orderedParams[] = $item;
-                        }
-
-                        return implode(", ", array_fill(0, count($val), "?"));
-                    }
-
-                    $orderedParams[] = $val;
-                    return "?";
-                },
-                $sql
-            );
-
-            if ($translatedSql === null) {
-                throw new QueryException("Erro ao processar parâmetros na consulta SQL: " . preg_last_error_msg(), $sql, $params);
-            }
-
-            return [$translatedSql, $orderedParams];
-        }
-
         if (isset(self::$namedSqlCache[$sql])) {
-            $cached = self::$namedSqlCache[$sql];
-            unset(self::$namedSqlCache[$sql]);
-            self::$namedSqlCache[$sql] = $cached;
-            [$translatedSql, $keyOrder] = $cached;
+            [$translatedSql, $keyOrder] = self::$namedSqlCache[$sql];
         } else {
+            $pattern = '/(
+                \'(?:[^\'\\\\]|\\\\.|\'\')*\'
+                |
+                "(?:[^"\\\\]|\\\\.|"")*"
+                |
+                `(?:[^`\\\\]|\\\\.|``)*`
+                |
+                (?:--|\#)[^\r\n]*
+                |
+                \/\*[\s\S]*?\*\/
+            )
+            |
+            (::|:=)
+            |
+            (?<!:):([a-zA-Z_][a-zA-Z0-9_]*)
+            /xs';
+
             $keyOrder = [];
             $translatedSql = preg_replace_callback(
                 $pattern,
@@ -197,15 +142,18 @@ abstract class AbstractDriver implements DriverInterface
         $orderedParams = [];
         foreach ($keyOrder as $key) {
             if (array_key_exists($key, $params)) {
-                $orderedParams[] = $params[$key];
-                continue;
-            }
-            if (array_key_exists(":" . $key, $params)) {
-                $orderedParams[] = $params[":" . $key];
-                continue;
+                $val = $params[$key];
+            } elseif (array_key_exists(":" . $key, $params)) {
+                $val = $params[":" . $key];
+            } else {
+                throw new QueryException("Parâmetro nomeado ':{$key}' não foi informado.", $sql, $params);
             }
 
-            throw new QueryException("Parâmetro nomeado ':{$key}' não foi informado.", $sql, $params);
+            if (is_array($val)) {
+                return self::expandNamedArrayParameters($sql, $params);
+            }
+
+            $orderedParams[] = $val;
         }
 
         return [$translatedSql, $orderedParams];
@@ -430,5 +378,71 @@ abstract class AbstractDriver implements DriverInterface
             affectedRows: $affectedRows,
             connection: $this->connectionName
         );
+    }
+
+    /**
+     * @param array<int|string, mixed> $params
+     * @return array{0: string, 1: list<mixed>}
+     * @throws QueryException
+     */
+    private static function expandNamedArrayParameters(string $sql, array $params): array
+    {
+        $pattern = '/(
+            \'(?:[^\'\\\\]|\\\\.|\'\')*\'
+            |
+            "(?:[^"\\\\]|\\\\.|"")*"
+            |
+            `(?:[^`\\\\]|\\\\.|``)*`
+            |
+            (?:--|\#)[^\r\n]*
+            |
+            \/\*[\s\S]*?\*\/
+        )
+        |
+        (::|:=)
+        |
+        (?<!:):([a-zA-Z_][a-zA-Z0-9_]*)
+        /xs';
+
+        $orderedParams = [];
+        $translatedSql = preg_replace_callback(
+            $pattern,
+            static function (array $matches) use ($sql, $params, &$orderedParams): string {
+                if (!empty($matches[1]) || !empty($matches[2])) {
+                    return $matches[0];
+                }
+
+                $key = $matches[3];
+                if (array_key_exists($key, $params)) {
+                    $val = $params[$key];
+                } elseif (array_key_exists(":" . $key, $params)) {
+                    $val = $params[":" . $key];
+                } else {
+                    throw new QueryException("Parâmetro nomeado ':{$key}' não foi informado.", $sql, $params);
+                }
+
+                if (is_array($val)) {
+                    if ($val === []) {
+                        throw new QueryException("O parâmetro de lista ':{$key}' não pode ser um array vazio.", $sql, $params);
+                    }
+
+                    foreach ($val as $item) {
+                        $orderedParams[] = $item;
+                    }
+
+                    return implode(", ", array_fill(0, count($val), "?"));
+                }
+
+                $orderedParams[] = $val;
+                return "?";
+            },
+            $sql
+        );
+
+        if ($translatedSql === null) {
+            throw new QueryException("Erro ao processar parâmetros na consulta SQL: " . preg_last_error_msg(), $sql, $params);
+        }
+
+        return [$translatedSql, $orderedParams];
     }
 }

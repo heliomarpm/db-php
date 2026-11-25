@@ -325,7 +325,9 @@ final class MysqliDriver extends AbstractDriver
         $types = "";
         $boundParams = [];
         foreach ($params as $param) {
-            $param = self::normalizeParamValue($param);
+            if (is_object($param)) {
+                $param = self::normalizeParamValue($param);
+            }
             $types .= match (true) {
                 is_bool($param) => "i",
                 is_int($param) => "i",

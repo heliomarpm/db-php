@@ -374,6 +374,21 @@ echo json_encode($paginado);
 
 ---
 
+## 💡 Boas Práticas e Dicas de Alta Performance
+
+Para extrair o máximo de velocidade e previsibilidade do **DbPHP** em produção:
+
+- **Reutilize Prepared Statements em loops (`statementCacheSize`)**: ao executar a mesma consulta repetidas vezes em lotes ou APIs de alto tráfego, ative o cache LRU por conexão (`Config::forMysql(...)->withStatementCacheSize(64)`). Isso evita novos round-trips de `PREPARE` no servidor e reduz em até **60%** o tempo no MySQL/PDO.
+- **Use `DB::cursor()` para grandes volumes**: em exportações, relatórios ou filas CLI com milhares de registros, prefira `cursor()` em vez de `query()`. Ele itera via `Generator` mantendo consumo de memória constante ($O(1)$).
+- **Prefira `DB::simplePaginate()` quando não precisar de total global**: em feeds e *scroll* infinito, `simplePaginate()` economiza a query de `COUNT(*)` executando apenas 1 consulta (`LIMIT perPage + 1`).
+- **Use atalhos diretos (`row`, `scalar`, `column`)**: evitam a criação de objetos intermediários quando você precisa apenas de uma linha, um único valor ou uma lista simples.
+- **Conexão sob demanda (`lazy: true`)**: em sistemas com múltiplas conexões configuradas no bootstrap, `lazy: true` evita abrir sockets TCP para bancos que não serão consultados naquela requisição.
+- **Desative o Debug em produção (`DB::setDebug(false)`)**: o `QueryLog` é desativado por padrão (overhead zero). Em workers persistentes (FrankenPHP, RoadRunner, Swoole), caso ative em diagnóstico, ajuste `QueryLog::setMaxRecords()` para limitar a retenção em memória.
+
+> **Nota sobre Exceções e Logs**: Para facilitar o diagnóstico de falhas, `QueryException` preserva a instrução SQL, o código do driver e os parâmetros originais recebidos. Em aplicações em produção, trate e filtre na sua própria camada de logging ou resposta HTTP o que não deve ser exposto externamente.
+
+---
+
 ## 🖥️ Laboratório Interativo Local
 
 Você pode iniciar o servidor de demonstração interativo com todas as tabelas e cenários pré-configurados com um único comando:
