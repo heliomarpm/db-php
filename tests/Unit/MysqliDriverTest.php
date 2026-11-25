@@ -189,7 +189,7 @@ final class MysqliDriverTest extends TestCase
         });
 
         $res = $this->driver->query("SELECT COUNT(*) AS total FROM test_users");
-        $this->assertEquals(1, $res->row["total"]);
+        $this->assertSame(1, $res->row["total"]);
 
         try {
             $this->driver->transaction(function (DriverInterface $db): void {
@@ -201,7 +201,7 @@ final class MysqliDriverTest extends TestCase
         }
 
         $resAposRollback = $this->driver->query("SELECT COUNT(*) AS total FROM test_users");
-        $this->assertEquals(1, $resAposRollback->row["total"]);
+        $this->assertSame(1, $resAposRollback->row["total"]);
     }
 
     public function testTransactionDoesNotRollbackWhenQueryErrorHandledInCallback(): void
@@ -427,5 +427,99 @@ final class MysqliDriverTest extends TestCase
         $this->assertSame("Mariana Costa", $result->rows[1]["name"]);
         $this->assertSame("Status: :termo", $result->rows[0]["literal_info"]);
         $this->assertNotEmpty($result->rows[0]["hora_atual"]);
+    }
+
+    public function testNativeIntAndFloatTypesWithoutParameters(): void
+    {
+        $this->assertNotNull($this->driver);
+
+        $this->driver->execute(
+            "INSERT INTO test_users (name, email, active, score) VALUES (?, ?, ?, ?)",
+            ["Tipado", "tipado@test.com", 1, 12.5]
+        );
+
+        $res = $this->driver->query("SELECT id, active, score FROM test_users WHERE email = 'tipado@test.com'");
+        $this->assertSame(1, $res->count);
+        $this->assertIsInt($res->row["id"]);
+        $this->assertIsInt($res->row["active"]);
+        $this->assertSame(1, $res->row["active"]);
+        $this->assertIsFloat($res->row["score"]);
+        $this->assertSame(12.5, $res->row["score"]);
+    }
+
+    public function testNestedTransactionsWithSavepointCommitAndRollback(): void
+    {
+        $this->assertNotNull($this->driver);
+
+        // 1. Commit interno + rollback externo deve reverter tudo
+        try {
+            $this->driver->transaction(function (DriverInterface $db): void {
+                $db->execute("INSERT INTO test_users (name, email) VALUES (?, ?)", ["Outer", "outer_ms@test.com"]);
+
+                $db->transaction(function (DriverInterface $inner): void {
+                    $inner->execute("INSERT INTO test_users (name, email) VALUES (?, ?)", ["Inner", "inner_ms@test.com"]);
+                });
+
+                throw new RuntimeException("Falha externa após commit interno");
+            });
+        } catch (RuntimeException) {
+            // Rollback esperado
+        }
+
+        $resAll = $this->driver->query("SELECT COUNT(*) AS total FROM test_users");
+        $this->assertSame(0, $resAll->row["total"]);
+        $this->assertFalse($this->driver->inTransaction());
+
+        // 2. Rollback interno capturado + commit externo deve manter apenas o registro externo
+        $this->driver->transaction(function (DriverInterface $db): void {
+            $db->execute("INSERT INTO test_users (name, email) VALUES (?, ?)", ["OuterKeep", "outer_keep_ms@test.com"]);
+
+            try {
+                $db->transaction(function (DriverInterface $inner): void {
+                    $inner->execute("INSERT INTO test_users (name, email) VALUES (?, ?)", ["InnerRb", "inner_rb_ms@test.com"]);
+                    throw new RuntimeException("Falha interna controlada");
+                });
+            } catch (RuntimeException) {
+                // Savepoint revertido sem abortar a transação externa
+            }
+        });
+
+        $resOuter = $this->driver->query("SELECT name FROM test_users ORDER BY id ASC");
+        $this->assertSame(1, $resOuter->count);
+        $this->assertSame("OuterKeep", $resOuter->row["name"]);
+    }
+
+    public function testMissingNamedParameterThrowsQueryException(): void
+    {
+        $this->assertNotNull($this->driver);
+
+        $this->expectException(QueryException::class);
+        $this->expectExceptionMessage(":ativo");
+
+        $this->driver->query("SELECT * FROM test_users WHERE active = :ativo", ["active" => 1]);
+    }
+
+    public function testCustomCollationIsAppliedOnConnection(): void
+    {
+        $this->assertNotNull($this->driver);
+        $currentConfig = $this->driver->getConfig();
+
+        $customDriver = new MysqliDriver(new Config(
+            driver: "mysqli",
+            host: $currentConfig->host,
+            port: $currentConfig->port,
+            database: $currentConfig->database,
+            username: $currentConfig->username,
+            password: $currentConfig->password,
+            charset: "utf8mb4",
+            collation: "utf8mb4_bin"
+        ));
+
+        try {
+            $res = $customDriver->query("SELECT @@collation_connection AS current_collation");
+            $this->assertSame("utf8mb4_bin", $res->row["current_collation"]);
+        } finally {
+            $customDriver->close();
+        }
     }
 }

@@ -79,33 +79,9 @@ final class PdoDriver extends AbstractDriver
         }
     }
 
-    public function beginTransaction(): void
-    {
-        $this->assertConnected();
-        if (!$this->pdo->inTransaction()) {
-            $this->pdo->beginTransaction();
-        }
-    }
-
-    public function commit(): void
-    {
-        $this->assertConnected();
-        if ($this->pdo->inTransaction()) {
-            $this->pdo->commit();
-        }
-    }
-
-    public function rollback(): void
-    {
-        $this->assertConnected();
-        if ($this->pdo->inTransaction()) {
-            $this->pdo->rollBack();
-        }
-    }
-
     public function inTransaction(): bool
     {
-        return $this->pdo !== null && $this->pdo->inTransaction();
+        return $this->transactionLevel > 0 || ($this->pdo !== null && $this->pdo->inTransaction());
     }
 
     public function lastInsertId(): int|string
@@ -136,8 +112,9 @@ final class PdoDriver extends AbstractDriver
     public function close(): void
     {
         if ($this->pdo !== null) {
-            if ($this->pdo->inTransaction()) {
-                $this->rollback();
+            if ($this->transactionLevel > 0 || $this->pdo->inTransaction()) {
+                $this->doRollback();
+                $this->transactionLevel = 0;
             }
             $this->pdo = null;
         }
@@ -147,6 +124,46 @@ final class PdoDriver extends AbstractDriver
     {
         $this->assertConnected();
         return $this->pdo;
+    }
+
+    /**
+     * @phpstan-assert !null $this->pdo
+     */
+    protected function assertConnected(): void
+    {
+        if ($this->pdo === null) {
+            throw new ConnectionException("A conexão com o banco de dados está encerrada.");
+        }
+    }
+
+    protected function doBeginTransaction(): void
+    {
+        $this->assertConnected();
+        if (!$this->pdo->inTransaction()) {
+            $this->pdo->beginTransaction();
+        }
+    }
+
+    protected function doCommit(): void
+    {
+        $this->assertConnected();
+        if ($this->pdo->inTransaction()) {
+            $this->pdo->commit();
+        }
+    }
+
+    protected function doRollback(): void
+    {
+        $this->assertConnected();
+        if ($this->pdo->inTransaction()) {
+            $this->pdo->rollBack();
+        }
+    }
+
+    protected function executeTransactionSql(string $sql): void
+    {
+        $this->assertConnected();
+        $this->pdo->exec($sql);
     }
 
     private function connect(): void
@@ -159,7 +176,9 @@ final class PdoDriver extends AbstractDriver
         ];
 
         foreach ($this->config->options as $key => $value) {
-            $options[(int)$key] = $value;
+            if (is_int($key)) {
+                $options[$key] = $value;
+            }
         }
 
         try {
@@ -175,6 +194,10 @@ final class PdoDriver extends AbstractDriver
             } else {
                 $dsn = "mysql:host={$this->config->host};port={$this->config->port};dbname={$this->config->database};charset={$this->config->charset}";
                 $this->pdo = new PDO($dsn, $this->config->username, $this->config->password, $options);
+
+                if ($this->isCompatibleCollation($this->config->charset, $this->config->collation)) {
+                    $this->pdo->exec("SET NAMES '{$this->config->charset}' COLLATE '{$this->config->collation}'");
+                }
             }
         } catch (PDOException $e) {
             $code = is_numeric($e->getCode()) ? (int)$e->getCode() : 0;
@@ -203,15 +226,5 @@ final class PdoDriver extends AbstractDriver
         }
 
         return $stmt;
-    }
-
-    /**
-     * @phpstan-assert !null $this->pdo
-     */
-    private function assertConnected(): void
-    {
-        if ($this->pdo === null) {
-            throw new ConnectionException("A conexão com o banco de dados está encerrada.");
-        }
     }
 }

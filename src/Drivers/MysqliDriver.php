@@ -10,13 +10,13 @@ use HeliomarPM\DbPHP\Exceptions\ConnectionException;
 use HeliomarPM\DbPHP\Exceptions\QueryException;
 use HeliomarPM\DbPHP\Results\QueryResult;
 use mysqli;
+use mysqli_result;
 use mysqli_sql_exception;
 use mysqli_stmt;
 
 final class MysqliDriver extends AbstractDriver
 {
     private ?mysqli $conn;
-    private bool $inTransaction = false;
 
     public function __construct(
         Config $config,
@@ -43,16 +43,29 @@ final class MysqliDriver extends AbstractDriver
         try {
             if (!empty($resolvedParams)) {
                 $stmt = $this->prepareStatement($resolvedSql, $resolvedParams);
-                $stmt->execute();
-                $res = $stmt->get_result();
-                /** @var array<int, array<string, mixed>> $rows */
-                $rows = $res ? $res->fetch_all(MYSQLI_ASSOC) : [];
-                $this->affectedRows = (int)$stmt->affected_rows;
-                $stmt->close();
+                try {
+                    $stmt->execute();
+                    $res = $stmt->get_result();
+                    if ($res instanceof mysqli_result) {
+                        /** @var array<int, array<string, mixed>> $rows */
+                        $rows = $res->fetch_all(MYSQLI_ASSOC);
+                        $res->free();
+                    } else {
+                        $rows = [];
+                    }
+                    $this->affectedRows = (int)$stmt->affected_rows;
+                } finally {
+                    $stmt->close();
+                }
             } else {
                 $res = $this->conn->query($sql);
-                /** @var array<int, array<string, mixed>> $rows */
-                $rows = is_object($res) ? $res->fetch_all(MYSQLI_ASSOC) : [];
+                if ($res instanceof mysqli_result) {
+                    /** @var array<int, array<string, mixed>> $rows */
+                    $rows = $res->fetch_all(MYSQLI_ASSOC);
+                    $res->free();
+                } else {
+                    $rows = [];
+                }
                 $this->affectedRows = (int)$this->conn->affected_rows;
             }
 
@@ -79,9 +92,12 @@ final class MysqliDriver extends AbstractDriver
         try {
             if (!empty($resolvedParams)) {
                 $stmt = $this->prepareStatement($resolvedSql, $resolvedParams);
-                $stmt->execute();
-                $this->affectedRows = (int)$stmt->affected_rows;
-                $stmt->close();
+                try {
+                    $stmt->execute();
+                    $this->affectedRows = (int)$stmt->affected_rows;
+                } finally {
+                    $stmt->close();
+                }
             } else {
                 $this->conn->query($sql);
                 $this->affectedRows = (int)$this->conn->affected_rows;
@@ -94,44 +110,6 @@ final class MysqliDriver extends AbstractDriver
         } catch (mysqli_sql_exception $e) {
             throw new QueryException($e->getMessage(), $sql, $params, $e->getCode(), $e);
         }
-    }
-
-    public function beginTransaction(): void
-    {
-        $this->assertConnected();
-        if (!$this->inTransaction) {
-            $this->conn->begin_transaction();
-            $this->inTransaction = true;
-        }
-    }
-
-    public function commit(): void
-    {
-        $this->assertConnected();
-        if ($this->inTransaction) {
-            try {
-                $this->conn->commit();
-            } finally {
-                $this->inTransaction = false;
-            }
-        }
-    }
-
-    public function rollback(): void
-    {
-        $this->assertConnected();
-        if ($this->inTransaction) {
-            try {
-                $this->conn->rollback();
-            } finally {
-                $this->inTransaction = false;
-            }
-        }
-    }
-
-    public function inTransaction(): bool
-    {
-        return $this->inTransaction;
     }
 
     public function lastInsertId(): int|string
@@ -151,8 +129,9 @@ final class MysqliDriver extends AbstractDriver
     {
         $conn = $this->conn;
         if ($conn !== null) {
-            if ($this->inTransaction) {
-                $this->rollback();
+            if ($this->transactionLevel > 0) {
+                $this->doRollback();
+                $this->transactionLevel = 0;
             }
             $conn->close();
             $this->conn = null;
@@ -165,12 +144,59 @@ final class MysqliDriver extends AbstractDriver
         return $this->conn;
     }
 
+    /**
+     * @phpstan-assert !null $this->conn
+     */
+    protected function assertConnected(): void
+    {
+        if ($this->conn === null) {
+            throw new ConnectionException("A conexão MySQLi está encerrada.");
+        }
+    }
+
+    protected function doBeginTransaction(): void
+    {
+        $this->assertConnected();
+        $this->conn->begin_transaction();
+    }
+
+    protected function doCommit(): void
+    {
+        $this->assertConnected();
+        $this->conn->commit();
+    }
+
+    protected function doRollback(): void
+    {
+        $this->assertConnected();
+        $this->conn->rollback();
+    }
+
+    protected function executeTransactionSql(string $sql): void
+    {
+        $this->assertConnected();
+        $this->conn->query($sql);
+    }
+
     private function connect(): void
     {
         try {
             mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 
-            $this->conn = new mysqli(
+            $conn = mysqli_init();
+            if ($conn === false) {
+                throw new ConnectionException("Falha ao inicializar extensão MySQLi.");
+            }
+
+            $conn->options(MYSQLI_OPT_INT_AND_FLOAT_NATIVE, 1);
+
+            foreach ($this->config->options as $option => $value) {
+                if (is_int($option) && (is_int($value) || is_string($value))) {
+                    $conn->options($option, $value);
+                }
+            }
+
+            $conn->real_connect(
                 $this->config->host,
                 (string)$this->config->username,
                 (string)$this->config->password,
@@ -178,7 +204,15 @@ final class MysqliDriver extends AbstractDriver
                 $this->config->port
             );
 
-            $this->conn->set_charset($this->config->charset);
+            $conn->set_charset($this->config->charset);
+
+            if ($this->isCompatibleCollation($this->config->charset, $this->config->collation)) {
+                $conn->query("SET NAMES '{$this->config->charset}' COLLATE '{$this->config->collation}'");
+            }
+
+            $this->conn = $conn;
+        } catch (ConnectionException $e) {
+            throw $e;
         } catch (Exception $e) {
             $code = is_numeric($e->getCode()) ? (int)$e->getCode() : 0;
             throw new ConnectionException("Falha ao conectar via MySQLi: " . $e->getMessage(), $code, $e);
@@ -213,15 +247,5 @@ final class MysqliDriver extends AbstractDriver
         }
 
         return $stmt;
-    }
-
-    /**
-     * @phpstan-assert !null $this->conn
-     */
-    private function assertConnected(): void
-    {
-        if ($this->conn === null) {
-            throw new ConnectionException("A conexão MySQLi está encerrada.");
-        }
     }
 }

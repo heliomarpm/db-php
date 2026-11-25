@@ -1,7 +1,7 @@
 # Backlog do Projeto: heliomarpm/db-php
 
-> **Meta:** Evolução de estabilidade, resiliência, performance e consolidação da biblioteca db-php (v1.2)\
-> **Status:** concluído | **Progresso:** 20/20 (100%) | **WIP:** 0/0 | **Atualizado em:** 2026-10-28
+> **Meta:** Excelência em performance de execução, código limpo, manutenibilidade e ergonomia da biblioteca db-php (v1.2+)\
+> **Status:** em andamento | **Progresso:** 26/32 (81%) | **WIP:** 0/2 | **Atualizado em:** 2026-11-24
 
 ## Em progresso
 
@@ -11,18 +11,52 @@
 
 ### Alta Prioridade (Horizonte 1: Quick Wins & Higiene Imediata)
 
-*(Nenhuma tarefa pendente)*
+*(Todas as tarefas de Alta Prioridade foram concluídas)*
 
 ### Média Prioridade (Horizonte 2: Consolidação & Refatoração Tática)
 
-*(Nenhuma tarefa pendente)*
+- [ ] **T-027 · P1 · Implementar cache de templates SQL nomeados e cache LRU de Prepared Statements**
+  - Origem: `code-review` | Dependências: `T-023`
+  - Referências: [AbstractDriver.php](../src/Drivers/AbstractDriver.php#L37-L88), [PdoDriver.php](../src/Drivers/PdoDriver.php#L188-L206), [MysqliDriver.php](../src/Drivers/MysqliDriver.php#L191-L216), [Config.php](../src/Config.php)
+  - Critérios de aceite (DoD): Adicionar fast-path quando o SQL não contiver `:` e cache estático limitado (FIFO/LRU) em `resolveNamedParameters()` evitando regex repetida para o mesmo template SQL, além de cache LRU opcional por conexão para reutilização de `PDOStatement`/`mysqli_stmt` em execuções repetidas (com limpeza em `close()`), validado por testes unitários.
+- [ ] **T-028 · P1 · Adicionar leitura em streaming via cursor() e teto de memória no QueryLog**
+  - Origem: `code-review` | Dependências: nenhuma
+  - Referências: [DriverInterface.php](../src/Contracts/DriverInterface.php), [DB.php](../src/DB.php), [PdoDriver.php](../src/Drivers/PdoDriver.php), [MysqliDriver.php](../src/Drivers/MysqliDriver.php), [QueryLog.php](../src/Support/QueryLog.php), [AbstractDriver.php](../src/Drivers/AbstractDriver.php#L124-L143)
+  - Critérios de aceite (DoD): Implementar `cursor(string $sql, array $params = []): Generator` em `DriverInterface`, drivers e fachada `DB` lendo linha a linha com memória constante $O(1)$ e fechamento garantido em `finally`; adicionar limite configurável (`maxRecords`) em `QueryLog` e preencher `QueryRecord::$connection` com o nome da conexão ativa.
+- [ ] **T-029 · P2 · Unificar ciclo de execução em AbstractDriver com hrtime(true) e isolar countAffected()**
+  - Origem: `code-review` | Dependências: `T-027`
+  - Referências: [AbstractDriver.php](../src/Drivers/AbstractDriver.php), [PdoDriver.php](../src/Drivers/PdoDriver.php#L33-L80), [MysqliDriver.php](../src/Drivers/MysqliDriver.php#L36-L97), [QueryResult.php](../src/Results/QueryResult.php#L58-L65)
+  - Critérios de aceite (DoD): Extrair Template Methods em `AbstractDriver` centralizando medição monotônica via `hrtime(true)`, resolução de parâmetros, registro no `QueryLog` e tratamento de exceções; garantir que `query()` não sobrescreva `$this->affectedRows` da última operação `execute()` e remover argumentos `count:` redundantes ao instanciar `QueryResult`.
+- [ ] **T-030 · P2 · Padronizar regras do Pint (aspas duplas e strict_types), composer.json e documentação de DI**
+  - Origem: `code-review` | Dependências: nenhuma
+  - Referências: [pint.json](../pint.json), [SPEC.md](./specs/SPEC.md#L19-L21), [composer.json](../composer.json), [demo/index.php](../demo/index.php#L753), [README.md](../README.md)
+  - Critérios de aceite (DoD): Habilitar `"declare_strict_types": true` em `pint.json` e uniformizar aspas duplas em `QueryResult.php`, `PaginatedResult.php` e `QueryResultTest.php`; declarar `"ext-json": "*"` em `require` e `ext-pdo`/`ext-mysqli` em `suggest`, corrigir espaço na descrição do `composer.json`, atualizar badge de versão em `demo/index.php` e documentar Injeção de Dependência (`DriverInterface`) no `README.md`.
 
 ### Baixa Prioridade (Horizonte 3: Polimento & Expansão)
 
-*(Todas as tarefas do backlog foram concluídas com sucesso)*
+- [ ] **T-031 · P2 · Adicionar atalhos ergonômicos (row, scalar, column, simplePaginate), expansão IN (:array) e bind de Enums/Datas**
+  - Origem: `code-review` | Dependências: `T-023`, `T-028`
+  - Referências: [DriverInterface.php](../src/Contracts/DriverInterface.php), [DB.php](../src/DB.php), [HasResultHelpers.php](../src/Concerns/HasResultHelpers.php), [PaginatesQueries.php](../src/Concerns/PaginatesQueries.php), [AbstractDriver.php](../src/Drivers/AbstractDriver.php)
+  - Critérios de aceite (DoD): Implementar `row(): ?array`, `scalar(): mixed`, `column(): array` e `simplePaginate()` (paginação em 1 query sem `COUNT(*)`) nos contratos e fachada `DB`, mover `isEmpty()`/`isNotEmpty()` para `HasResultHelpers`, expandir listas não vazias em placeholders nomeados `IN (:ids)` e normalizar `BackedEnum`, `DateTimeInterface` e `Stringable` nos binds, com testes e exemplos no `README.md`.
+- [ ] **T-032 · P3 · Suportar conexão lazy opcional e expandir PdoDriver para PostgreSQL e DSN customizado**
+  - Origem: `code-review` | Dependências: `T-025`, `T-029`
+  - Referências: [Config.php](../src/Config.php), [DB.php](../src/DB.php#L28-L41), [PdoDriver.php](../src/Drivers/PdoDriver.php#L19-L31), [MysqliDriver.php](../src/Drivers/MysqliDriver.php#L21-L33)
+  - Critérios de aceite (DoD): Adicionar `lazy: bool = false` e `dsn: ?string = null` em `Config` (adiando a conexão física até a primeira query quando `lazy = true`), adicionar `Config::forPgsql()` / `DB::pgsql()` e suporte ao driver `pgsql`/DSN explícito em `DB::connect()` e `PdoDriver::connect()`, mantendo 100% de retrocompatibilidade.
 
 ## Concluídas recentemente
 
+- [x] **T-026 · P1 · Expandir cobertura de CI com pdo_mysql, lint de formatação e trava do PHPStan** (2026-11-24)
+  - Evidência: Adicionada extensão `pdo_mysql` e step `composer format` em `.github/workflows/ci.yml`, fixada trava `"phpstan/phpstan": "^1.12 || ^2.0"` em `composer.json` e criada suíte de integração `tests/Unit/PdoMysqlDriverTest.php` cobrindo MySQL via PDO (collation, `lastInsertId`, `paginate` e `SAVEPOINT`). `composer check` 100% verde (Pint, PHPStan Nível 8 com 0 erros, PHPUnit 72 testes / 375 asserções).
+- [x] **T-025 · P1 · Aplicar Config::$collation e Config::$options de forma consistente nos drivers** (2026-11-24)
+  - Evidência: Implementada verificação `isCompatibleCollation()` em `AbstractDriver`, aplicação de `SET NAMES ... COLLATE ...` em `PdoDriver` e `MysqliDriver` (MySQL) e repasse tipado de `Config::$options` em ambos os drivers. Validado em `MysqliDriverTest` e `PdoMysqlDriverTest` (`utf8mb4_bin`).
+- [x] **T-024 · P1 · Corrigir remoção de ORDER BY com comentários/binds e otimizar paginação fora de faixa** (2026-11-24)
+  - Evidência: `PaginatesQueries` atualizado para ignorar comentários (`--`, `#`, `/* ... */`), usar `preg_match('/\GORDER\s+BY\b/i', ..., $i)` sem cópias `substr()`, preservar `ORDER BY` com placeholders/`LIMIT`, encapsular queries com `LIMIT` existente e pular a 2ª query quando `$offset >= $total`. Coberto por testes em `PdoDriverTest`.
+- [x] **T-023 · P1 · Validar parâmetros nomeados ausentes em AbstractDriver::resolveNamedParameters()** (2026-11-24)
+  - Evidência: `AbstractDriver::resolveNamedParameters()` agora lança `QueryException` explícita ao detectar placeholder `:chave` ausente em `$params`. Validado em `PdoDriverTest` e `MysqliDriverTest`.
+- [x] **T-022 · P1 · Garantir tipos nativos (int/float) no MysqliDriver em consultas sem parâmetros** (2026-11-24)
+  - Evidência: `MysqliDriver::connect()` refatorado para usar `mysqli_init()` + `MYSQLI_OPT_INT_AND_FLOAT_NATIVE` + `real_connect()`, com liberação explícita de `mysqli_result` via `$res->free()` e fechamento de `$stmt` em `finally`. Coberto por `testNativeIntAndFloatTypesWithoutParameters` e `assertSame` em `MysqliDriverTest`.
+- [x] **T-021 · P0 · Suportar transações aninhadas com SAVEPOINT em AbstractDriver** (2026-11-24)
+  - Evidência: Centralizado controle de profundidade `$transactionLevel` em `AbstractDriver` (`beginTransaction()`, `commit()`, `rollback()`, `inTransaction()`) usando `SAVEPOINT dbphp_sp_{n}`, `RELEASE SAVEPOINT` e `ROLLBACK TO SAVEPOINT` para níveis `> 1`, com hooks protegidos em `PdoDriver` e `MysqliDriver`. Coberto em `PdoDriverTest`, `MysqliDriverTest` e `PdoMysqlDriverTest`.
 - [x] **T-020 · P3 · Adicionar modo de debug agregador de métricas e consultas executadas** (2026-10-28)
   - Evidência: Implementadas classes `QueryRecord` (readonly DTO com propriedades de tempo, detecção de bind nomeado vs posicional, driver, afetadas e serialização JSON) e `QueryLog` (coletor estático e agregador de métricas de telemetria) em `src/Support/`. `Config` atualizado com propriedade `$debug`, suporte em `Config::fromArray()` e método imutável `withDebug()`. `AbstractDriver`, `PdoDriver` e `MysqliDriver` instrumentados com medição de microtempo e registro de chamadas de `query()` e `execute()`, mantendo overhead zero quando o modo debug está inativo. Fachada `DB` enriquecida com `setDebug()`, `isDebug()`, `getQueryLog()`, `getQueryMetrics()` e `clearQueryLog()`. Painel interativo colapsável de telemetria adicionado na demo (`demo/index.php`) com badges de contagem de queries, tempo total em ms, binds nomeados vs posicionais, lista com syntax highlight SQL e botão de alternância `Debug: ON/OFF`. Suíte `QueryLogTest` com 7 testes e 39 asserções cobrindo DTO, serialização, binds, agregação de métricas e ciclo de vida da flag. Suíte global: 61 testes / 333 asserções 100% verdes, PHPStan Nível 8 com 0 erros e Pint aprovado. Validado no navegador via subagente com gravação e capturas de tela.
 - [x] **T-016 · P3 · Consolidar manipulação de resultados e padronização JSON entre QueryResult e PaginatedResult** (2026-10-28)
@@ -47,3 +81,4 @@
   - Evidência: Implementado método `removeTrailingOrderBy` no trait `PaginatesQueries` para podar a cláusula `ORDER BY` externa da subquery de `COUNT(*)`, mantendo compatibilidade com subqueries, literais e `GROUP BY`/`HAVING`. Testes unitários com casos simples, complexos, literais e `GROUP BY` 100% verdes (18 testes, 90 asserções). Demo testada e compatível.
 - [x] **T-009 · P0 · Desacoplar auto-rollback interno de erros de query e execute nos drivers** (2026-10-26)
   - Evidência: Removido auto-rollback destrutivo de `query()` e `execute()` em `PdoDriver` e `MysqliDriver`. O método `transaction()` permanece como autoridade do ciclo atômico de `commit()` e `rollback()`. Teste unitário `testTransactionDoesNotRollbackWhenQueryErrorHandledInCallback` em `PdoDriverTest` 100% verde (16 testes, 80 asserções).
+  

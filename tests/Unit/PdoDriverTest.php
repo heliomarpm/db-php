@@ -7,6 +7,8 @@ namespace HeliomarPM\DbPHP\Tests\Unit;
 use HeliomarPM\DbPHP\Config;
 use HeliomarPM\DbPHP\Contracts\DriverInterface;
 use HeliomarPM\DbPHP\Drivers\PdoDriver;
+use HeliomarPM\DbPHP\Exceptions\QueryException;
+use HeliomarPM\DbPHP\Support\QueryLog;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 
@@ -78,7 +80,7 @@ final class PdoDriverTest extends TestCase
         $this->driver->transaction(function (DriverInterface $db): void {
             try {
                 $db->execute("INSERT INTO users (name, email) VALUES (?, ?)", ["Duplicate", "existing@example.com"]);
-            } catch (\HeliomarPM\DbPHP\Exceptions\QueryException) {
+            } catch (QueryException) {
                 // Tratamento local do erro: a transação permanece viva
             }
 
@@ -273,5 +275,109 @@ final class PdoDriverTest extends TestCase
         );
         $this->assertSame(1, $result2->count);
         $this->assertSame("Carlos Silva", $result2->row["name"]);
+    }
+
+    public function testNestedTransactionsWithSavepointCommitAndRollback(): void
+    {
+        // 1. Commit interno + rollback externo deve reverter tudo
+        try {
+            $this->driver->transaction(function (DriverInterface $db): void {
+                $db->execute("INSERT INTO users (name, email) VALUES (?, ?)", ["Outer", "outer@test.com"]);
+
+                $db->transaction(function (DriverInterface $inner): void {
+                    $inner->execute("INSERT INTO users (name, email) VALUES (?, ?)", ["Inner", "inner@test.com"]);
+                });
+
+                throw new RuntimeException("Falha externa após commit interno");
+            });
+        } catch (RuntimeException) {
+            // Rollback esperado
+        }
+
+        $resAll = $this->driver->query("SELECT COUNT(*) AS total FROM users");
+        $this->assertSame(0, (int)$resAll->row["total"]);
+        $this->assertFalse($this->driver->inTransaction());
+
+        // 2. Rollback interno capturado + commit externo deve manter apenas o registro externo
+        $this->driver->transaction(function (DriverInterface $db): void {
+            $db->execute("INSERT INTO users (name, email) VALUES (?, ?)", ["OuterKeep", "outer_keep@test.com"]);
+
+            try {
+                $db->transaction(function (DriverInterface $inner): void {
+                    $inner->execute("INSERT INTO users (name, email) VALUES (?, ?)", ["InnerRollback", "inner_rb@test.com"]);
+                    throw new RuntimeException("Falha interna controlada");
+                });
+            } catch (RuntimeException) {
+                // Savepoint revertido sem abortar a transação externa
+            }
+        });
+
+        $resOuter = $this->driver->query("SELECT name FROM users ORDER BY id ASC");
+        $this->assertSame(1, $resOuter->count);
+        $this->assertSame("OuterKeep", $resOuter->row["name"]);
+    }
+
+    public function testMissingNamedParameterThrowsQueryException(): void
+    {
+        $this->expectException(QueryException::class);
+        $this->expectExceptionMessage(":ativo");
+
+        $this->driver->query("SELECT * FROM users WHERE active = :ativo", ["active" => 1]);
+    }
+
+    public function testRemoveTrailingOrderByWithCommentsPlaceholdersAndLimit(): void
+    {
+        // 1. Ignora comentários com ORDER BY e parênteses desbalanceados dentro de comentários
+        $sqlCommentBlock = "SELECT * /* ( ORDER BY falso */ FROM users -- outro ORDER BY falso\nWHERE active = 1 ORDER BY id DESC";
+        $this->assertSame(
+            "SELECT * /* ( ORDER BY falso */ FROM users -- outro ORDER BY falso\nWHERE active = 1",
+            $this->driver->removeTrailingOrderBy($sqlCommentBlock)
+        );
+
+        // 2. Comentário sem ORDER BY externo não trunca a consulta
+        $sqlOnlyComment = "SELECT * /* sem ORDER BY aqui */ FROM users WHERE active = 1";
+        $this->assertSame($sqlOnlyComment, $this->driver->removeTrailingOrderBy($sqlOnlyComment));
+
+        // 3. Preserva ORDER BY quando há placeholder posicional ou nomeado nele
+        $sqlOrderWithBind = "SELECT * FROM users ORDER BY (id = ?) DESC";
+        $this->assertSame($sqlOrderWithBind, $this->driver->removeTrailingOrderBy($sqlOrderWithBind));
+
+        $sqlOrderWithNamedBind = "SELECT * FROM users ORDER BY (id = :prio) DESC";
+        $this->assertSame($sqlOrderWithNamedBind, $this->driver->removeTrailingOrderBy($sqlOrderWithNamedBind));
+    }
+
+    public function testPaginateOutOfRangeSkipsSecondQueryAndHandlesExistingLimit(): void
+    {
+        $this->driver->execute("INSERT INTO users (name, email, active) VALUES (?, ?, ?)", ["U1", "u1_p@test.com", 1]);
+        $this->driver->execute("INSERT INTO users (name, email, active) VALUES (?, ?, ?)", ["U2", "u2_p@test.com", 1]);
+
+        QueryLog::reset();
+        QueryLog::enable();
+
+        try {
+            $outOfRange = $this->driver->paginate(
+                "SELECT * FROM users ORDER BY id ASC",
+                [],
+                page: 5,
+                perPage: 10
+            );
+
+            $this->assertSame(2, $outOfRange->total);
+            $this->assertSame([], $outOfRange->items);
+            $this->assertCount(1, QueryLog::all(), "Não deve disparar a segunda query quando offset >= total.");
+
+            // Query que já contém LIMIT no nível 0
+            $withLimit = $this->driver->paginate(
+                "SELECT * FROM users ORDER BY id ASC LIMIT 1",
+                [],
+                page: 1,
+                perPage: 10
+            );
+            $this->assertSame(1, $withLimit->total);
+            $this->assertCount(1, $withLimit->items);
+        } finally {
+            QueryLog::reset();
+            QueryLog::disable();
+        }
     }
 }

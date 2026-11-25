@@ -16,6 +16,7 @@ abstract class AbstractDriver implements DriverInterface
     use PaginatesQueries;
 
     protected int $affectedRows = 0;
+    protected int $transactionLevel = 0;
 
     public function __construct(
         protected readonly Config $config
@@ -25,6 +26,16 @@ abstract class AbstractDriver implements DriverInterface
     {
         $this->close();
     }
+
+    abstract protected function assertConnected(): void;
+
+    abstract protected function doBeginTransaction(): void;
+
+    abstract protected function doCommit(): void;
+
+    abstract protected function doRollback(): void;
+
+    abstract protected function executeTransactionSql(string $sql): void;
 
     /**
      * Converte parâmetros nomeados em posicionais (?) ignorando literais de texto,
@@ -60,7 +71,7 @@ abstract class AbstractDriver implements DriverInterface
         $orderedParams = [];
         $translatedSql = preg_replace_callback(
             $pattern,
-            static function (array $matches) use ($params, &$orderedParams): string {
+            static function (array $matches) use ($sql, $params, &$orderedParams): string {
                 if (!empty($matches[1]) || !empty($matches[2])) {
                     return $matches[0];
                 }
@@ -75,7 +86,7 @@ abstract class AbstractDriver implements DriverInterface
                     return "?";
                 }
 
-                return $matches[0];
+                throw new QueryException("Parâmetro nomeado ':{$key}' não foi informado.", $sql, $params);
             },
             $sql
         );
@@ -97,6 +108,69 @@ abstract class AbstractDriver implements DriverInterface
         return $this->config;
     }
 
+    public function beginTransaction(): void
+    {
+        $this->assertConnected();
+
+        if ($this->transactionLevel === 0) {
+            $this->doBeginTransaction();
+            $this->transactionLevel = 1;
+            return;
+        }
+
+        $nextLevel = $this->transactionLevel + 1;
+        $this->executeTransactionSql("SAVEPOINT dbphp_sp_{$nextLevel}");
+        $this->transactionLevel = $nextLevel;
+    }
+
+    public function commit(): void
+    {
+        $this->assertConnected();
+
+        if ($this->transactionLevel === 0) {
+            return;
+        }
+
+        if ($this->transactionLevel === 1) {
+            try {
+                $this->doCommit();
+            } finally {
+                $this->transactionLevel = 0;
+            }
+            return;
+        }
+
+        $this->executeTransactionSql("RELEASE SAVEPOINT dbphp_sp_{$this->transactionLevel}");
+        $this->transactionLevel--;
+    }
+
+    public function rollback(): void
+    {
+        $this->assertConnected();
+
+        if ($this->transactionLevel === 0) {
+            return;
+        }
+
+        if ($this->transactionLevel === 1) {
+            try {
+                $this->doRollback();
+            } finally {
+                $this->transactionLevel = 0;
+            }
+            return;
+        }
+
+        $this->executeTransactionSql("ROLLBACK TO SAVEPOINT dbphp_sp_{$this->transactionLevel}");
+        $this->executeTransactionSql("RELEASE SAVEPOINT dbphp_sp_{$this->transactionLevel}");
+        $this->transactionLevel--;
+    }
+
+    public function inTransaction(): bool
+    {
+        return $this->transactionLevel > 0;
+    }
+
     public function transaction(callable $callback): mixed
     {
         $this->beginTransaction();
@@ -114,6 +188,14 @@ abstract class AbstractDriver implements DriverInterface
     public function isDebug(): bool
     {
         return $this->config->debug || QueryLog::isEnabled();
+    }
+
+    protected function isCompatibleCollation(string $charset, string $collation): bool
+    {
+        return $collation !== ""
+            && preg_match("/^[a-zA-Z0-9_]+$/", $charset) === 1
+            && preg_match("/^[a-zA-Z0-9_]+$/", $collation) === 1
+            && str_starts_with(strtolower($collation), strtolower($charset) . "_");
     }
 
     /**

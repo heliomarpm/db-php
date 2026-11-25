@@ -35,21 +35,25 @@ trait PaginatesQueries
         $countResult = $this->query($countSql, $params);
         $total = (int)($countResult->row["total_count"] ?? 0);
 
-        if ($total === 0) {
+        if ($total === 0 || $offset >= $total) {
             return new PaginatedResult(
                 items: [],
-                total: 0,
+                total: $total,
                 perPage: $validPerPage,
                 currentPage: $validPage,
                 elapsedTime: microtime(true) - $startTime
             );
         }
 
+        $baseSql = $this->hasTopLevelLimit($cleanSql)
+            ? "SELECT * FROM ({$cleanSql}) AS paginated_subquery"
+            : $cleanSql;
+
         if (empty($params) || array_is_list($params)) {
-            $paginatedSql = "{$cleanSql} LIMIT ? OFFSET ?";
+            $paginatedSql = "{$baseSql} LIMIT ? OFFSET ?";
             $paginatedParams = [...$params, $validPerPage, $offset];
         } else {
-            $paginatedSql = "{$cleanSql} LIMIT :__db_limit__ OFFSET :__db_offset__";
+            $paginatedSql = "{$baseSql} LIMIT :__db_limit__ OFFSET :__db_offset__";
             $paginatedParams = $params;
             $paginatedParams["__db_limit__"] = $validPerPage;
             $paginatedParams["__db_offset__"] = $offset;
@@ -69,7 +73,8 @@ trait PaginatesQueries
 
     /**
      * Remove a cláusula ORDER BY externa (nível 0) de uma instrução SQL.
-     * Preserva ORDER BY presentes dentro de subqueries, window functions ou literais.
+     * Preserva ORDER BY presentes dentro de subqueries, window functions, literais ou comentários,
+     * bem como cláusulas que contenham placeholders de bind ou LIMIT externo.
      */
     public function removeTrailingOrderBy(string $sql): string
     {
@@ -101,6 +106,18 @@ trait PaginatesQueries
                 continue;
             }
 
+            if ($char === "#" || ($char === "-" && $i + 1 < $len && $sql[$i + 1] === "-")) {
+                $newlinePos = strpos($sql, "\n", $i);
+                $i = $newlinePos === false ? $len - 1 : $newlinePos;
+                continue;
+            }
+
+            if ($char === "/" && $i + 1 < $len && $sql[$i + 1] === "*") {
+                $endCommentPos = strpos($sql, "*/", $i + 2);
+                $i = $endCommentPos === false ? $len - 1 : $endCommentPos + 1;
+                continue;
+            }
+
             if ($char === "(") {
                 $depth++;
                 continue;
@@ -111,17 +128,102 @@ trait PaginatesQueries
                 continue;
             }
 
-            if ($depth === 0 && ($char === "o" || $char === "O") && ($i === 0 || ctype_space($sql[$i - 1]))) {
-                if (preg_match('/^ORDER\s+BY\b/i', substr($sql, $i))) {
-                    $lastOrderByPos = $i;
-                }
+            if (
+                $depth === 0
+                && ($char === "o" || $char === "O")
+                && ($i === 0 || ctype_space($sql[$i - 1]) || $sql[$i - 1] === ")")
+                && preg_match('/\GORDER\s+BY\b/i', $sql, $matches, 0, $i) === 1
+            ) {
+                $lastOrderByPos = $i;
             }
         }
 
         if ($lastOrderByPos !== null) {
+            $trailing = substr($sql, $lastOrderByPos);
+            if ($this->containsPlaceholderOrLimitOutsideLiterals($trailing)) {
+                return $sql;
+            }
+
             return rtrim(substr($sql, 0, $lastOrderByPos));
         }
 
         return $sql;
+    }
+
+    private function hasTopLevelLimit(string $sql): bool
+    {
+        $len = strlen($sql);
+        $depth = 0;
+        $inQuote = false;
+        $quoteChar = "";
+
+        for ($i = 0; $i < $len; $i++) {
+            $char = $sql[$i];
+
+            if ($inQuote) {
+                if ($char === $quoteChar) {
+                    if ($i + 1 < $len && $sql[$i + 1] === $quoteChar) {
+                        $i++;
+                    } else {
+                        $inQuote = false;
+                    }
+                } elseif ($char === "\\") {
+                    $i++;
+                }
+                continue;
+            }
+
+            if ($char === "'" || $char === '"' || $char === "`") {
+                $inQuote = true;
+                $quoteChar = $char;
+                continue;
+            }
+
+            if ($char === "#" || ($char === "-" && $i + 1 < $len && $sql[$i + 1] === "-")) {
+                $newlinePos = strpos($sql, "\n", $i);
+                $i = $newlinePos === false ? $len - 1 : $newlinePos;
+                continue;
+            }
+
+            if ($char === "/" && $i + 1 < $len && $sql[$i + 1] === "*") {
+                $endCommentPos = strpos($sql, "*/", $i + 2);
+                $i = $endCommentPos === false ? $len - 1 : $endCommentPos + 1;
+                continue;
+            }
+
+            if ($char === "(") {
+                $depth++;
+                continue;
+            }
+
+            if ($char === ")") {
+                $depth = max(0, $depth - 1);
+                continue;
+            }
+
+            if (
+                $depth === 0
+                && ($char === "l" || $char === "L")
+                && ($i === 0 || ctype_space($sql[$i - 1]) || $sql[$i - 1] === ")")
+                && preg_match('/\GLIMIT\b/i', $sql, $matches, 0, $i) === 1
+            ) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function containsPlaceholderOrLimitOutsideLiterals(string $sqlFragment): bool
+    {
+        $stripped = (string)preg_replace(
+            "/('(?:[^'\\\\]|\\\\.|'')*'|\"(?:[^\"\\\\]|\\\\.|\"\")*\"|`(?:[^`\\\\]|\\\\.|``)*`|(?:--|#)[^\\r\\n]*|\\/\\*[\\s\\S]*?\\*\\/)/",
+            " ",
+            $sqlFragment
+        );
+
+        return str_contains($stripped, "?")
+            || preg_match("/(?<!:):[a-zA-Z_][a-zA-Z0-9_]*/", $stripped) === 1
+            || preg_match('/\bLIMIT\b/i', $stripped) === 1;
     }
 }
